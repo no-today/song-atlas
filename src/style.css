@@ -258,10 +258,10 @@ svg:not(.m-battle) .tok{display:none}
 svg.m-battle .rt g.hastok .rl{display:none!important}
 /* ---------- 画面同步：字幕、闪标、高亮 ---------- */
 /* 电影式：字幕直接压在地图上（墨字、羊皮纸色光晕），无框；控制条居下、播放中鼠标静止自动隐去 */
-#nr-sub{position:absolute;left:50%;bottom:50px;transform:translateX(-50%);z-index:2;width:max-content;max-width:min(70%,calc(100% - 320px));font-family:var(--display);font-size:22px;line-height:1.45;text-align:center;color:var(--ink);pointer-events:none;transition:bottom .3s;
+#nr-sub{position:absolute;left:50%;bottom:50px;transform:translateX(-50%);z-index:2;width:max-content;max-width:min(70%,calc(100% - 320px));font-family:var(--display);font-size:25px;line-height:1.45;text-align:center;color:var(--ink);pointer-events:none;transition:bottom .3s;
   text-shadow:0 0 2px #f3e8cc,0 0 2px #f3e8cc,0 0 3px #f3e8cc,0 0 6px rgba(243,232,204,.95),0 0 12px rgba(243,232,204,.8),0 0 22px rgba(243,232,204,.55)}
 #mapwrap.idle #nr-sub{bottom:28px}
-#nr-sub.long{font-size:19px}
+#nr-sub.long{font-size:22px}
 #nr-sub b{font-weight:700}
 #nr-sub .nc{color:var(--ink)}
 /* 题签：当前段的年份与标题，换段时淡入，数秒后转淡常驻 */
@@ -283,7 +283,7 @@ svg.m-battle .rt g.hastok .rl{display:none!important}
 /* 地图区窄时控制条与左下缩放、右下比例尺同一行会相叠：整体抬到缩放按钮之上 */
 #mapwrap{container-type:inline-size}
 @container (max-width:720px){#narr{bottom:54px}#nr-sub{bottom:94px;max-width:92%}#mapwrap.idle #nr-sub{bottom:54px}#nr-cap{top:146px;left:14px;transform:none;max-width:calc(100% - 28px)}}
-@media (max-width:860px){#nr-sub{max-width:92%;font-size:18px}#nr-sub.long{font-size:16px}#nr-cap{font-size:13px}}
+@media (max-width:860px){#nr-sub{max-width:92%;font-size:20px}#nr-sub.long{font-size:18px}#nr-cap{font-size:13px}}
 .terr path.f{transition:fill-opacity .35s}.terr path.o{transition:stroke-width .35s,stroke-opacity .35s}
 .terr g.hl path.o{stroke-width:calc(2.6px*var(--s));stroke-opacity:1}
 .terr g.hl:not(.sel) path.f{fill-opacity:.46}
