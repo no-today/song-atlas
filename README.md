@@ -2,6 +2,8 @@
 
 单页历史地图：从 936 年后晋立国、割燕云十六州，到 1279 年崖山宋亡，按年份展示疆域态势、大事与战役，并配有约 5 万字的「电影说书」式讲解（配音、逐句字幕、镜头随讲解移动）。
 
+在线访问：https://song-atlas.notoday.dev
+
 产物是一个可离线打开的单文件 HTML（配音音频需联网加载）。
 
 ## 使用
@@ -12,6 +14,7 @@
 npm i
 npm run dev     # 开发服务器 http://localhost:5173
 npm run build   # 生成 dist/五代两宋舆地沿革图.html
+npm run deploy  # 部署到 Cloudflare（需先 wrangler login）
 ```
 
 页面地址可直接分享：`#y=年份` 跳到某年，`#b=战役名&s=步` 打开战役，`#f=段号` 从某段开始播放全片。

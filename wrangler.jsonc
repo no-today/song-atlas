@@ -1,0 +1,8 @@
+// Cloudflare Workers 静态资源部署：npm run deploy（先 build，再把单文件产物作为 index.html 上传）
+{
+  "name": "song-atlas",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": ".deploy", "not_found_handling": "single-page-application" },
+  "routes": [{ "pattern": "song-atlas.notoday.dev", "custom_domain": true }],
+  "workers_dev": false
+}

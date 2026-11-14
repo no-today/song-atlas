@@ -5,6 +5,7 @@
 ## 命令
 
 - `npm run dev`：开发服务器 http://localhost:5173，改 src/ data/ assets/ 自动 check + build 并刷新浏览器
+- `npm run deploy`：build 后部署到 Cloudflare Workers（https://song-atlas.notoday.dev，配置见 `wrangler.jsonc`）
 - `npm run build`：先跑 `check`，再拼出 `dist/五代两宋舆地沿革图.html`（dist 不入库）
 - `npm run check`：数据互相引用的一致性检查（下标、形状、年份范围）
 - `npm run derive`：按 `data/snap-edits.json` 派生新态势（写回 snaps/shapes）；`npm run fmt`：统一 data 格式

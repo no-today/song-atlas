@@ -5,3 +5,5 @@ dist/
 .env
 .cache/voice/
 plans/
+.deploy/
+.wrangler/
