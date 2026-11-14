@@ -1,4 +1,4 @@
-# 五代两宋舆地沿革图
+# 宋代疆域图
 
 单页历史地图：从 936 年后晋立国、割燕云十六州，到 1279 年崖山宋亡，按年份展示疆域态势、大事与战役，并配有约 5 万字的「电影说书」式讲解（配音、逐句字幕、镜头随讲解移动）。
 
@@ -13,7 +13,7 @@
 ```sh
 npm i
 npm run dev     # 开发服务器 http://localhost:5173
-npm run build   # 生成 dist/五代两宋舆地沿革图.html
+npm run build   # 生成 dist/宋代疆域图.html
 npm run deploy  # 部署到 Cloudflare（需先 wrangler login）
 ```
 

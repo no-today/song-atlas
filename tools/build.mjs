@@ -13,7 +13,7 @@ const data=`const BASE=${J(BASE)};\nconst HIST=${J(HIST)};\nconst C=${J(C)};\nco
 let html=rd('src/index.html');
 const put=(mark,s)=>{if(!html.includes(mark))throw new Error('模板缺少 '+mark);html=html.replace(mark,()=>s)};
 put('/*@css*/',rd('src/style.css'));put('/*@data*/',data);put('/*@js*/',rd('src/app.js'));
-const title=html.match(/<title>(.*?)<\/title>/)[1];
+const title=html.match(/og:site_name" content="(.*?)"/)[1];
 mkdirSync(join(root,'dist'),{recursive:true});
 const out=join(root,'dist',title+'.html');writeFileSync(out,html);
 console.log(`dist/${title}.html  ${(html.length/1024).toFixed(0)} KB`);

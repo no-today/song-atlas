@@ -1,4 +1,4 @@
-# 五代两宋舆地沿革图
+# 宋代疆域图
 
 单页历史地图：936 年（后晋立国、割燕云）至 1279 年宋亡的疆域态势、大事、战役分步解说。产物是一个可离线打开的单文件 HTML。
 
@@ -6,7 +6,7 @@
 
 - `npm run dev`：开发服务器 http://localhost:5173，改 src/ data/ assets/ 自动 check + build 并刷新浏览器
 - `npm run deploy`：build 后部署到 Cloudflare Workers（https://song-atlas.notoday.dev，配置见 `wrangler.jsonc`）
-- `npm run build`：先跑 `check`，再拼出 `dist/五代两宋舆地沿革图.html`（dist 不入库）
+- `npm run build`：先跑 `check`，再拼出 `dist/宋代疆域图.html`（dist 不入库）
 - `npm run check`：数据互相引用的一致性检查（下标、形状、年份范围）
 - `npm run derive`：按 `data/snap-edits.json` 派生新态势（写回 snaps/shapes）；`npm run fmt`：统一 data 格式
 - `npm run voice -- --dry`：统计待配音；`--only 文字前缀`、`--from 段 --to 段`（段号同 `#f=`）限量合成并上传 R2，`--redo` 强制重合成选中段，`--fix` 只重做自检不过的段（尾部没读、多出无字幕语音、长停顿；合成时也自动补尾、裁剪），`--verify` 检查音频；凭据只读 `.env`，缓存 `.cache/voice/`
@@ -31,6 +31,7 @@
   - `voice` 配音清单 `{base,au:{文字哈希:音频文件名},tm:{文字哈希:[厘秒差,字下标差,…]}}`（首词为绝对值，后续为差值），`tools/voice.mjs` 生成，`--tm` 只补时间戳；build 填入音频地址与时间戳（站点/结语 `tm`、战役步骤 `[4]`）；`lexicon` 为复刻音色读音表
   - `snap-edits` 派生态势的 ops（见 tools/derive.mjs 文件头）；派生出的态势不要手改 snaps/shapes
 - `assets/relief.jpg`：晕渲地形底图
+- `public/`：部署时原样拷到站点根目录（robots.txt、sitemap.xml、分享预览图 og.jpg）
 - `tools/`：build / check / smoke / dev / fmt / derive；`geo.mjs` 有投影常数与 `city`/`border`/`ll` 查询命令
 - 地址：`#y=年`、`#b=战役名&s=步`、`#f=段`，状态变化即写回地址，可直接分享
 - `docs/`：史实核查与讲稿出处记录（`勘误*.md`、`战役出处-*.md`、`大事出处-*.md`）

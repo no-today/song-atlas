@@ -23,7 +23,7 @@ if(ai>0){
 const E=JSON.parse(readFileSync(join(root,'data/events.json'),'utf8'));
 const yr=n=>E.find(e=>e[1]===n)?.[0]??'';
 const lines=t=>t.match(/[^。！？]+[。！？]+[”」]?|[^。！？]+$/g).map(s=>s.trim()).join('\n\n');
-const out=['# 五代两宋舆地沿革图 · 全片讲稿通读稿','','按播放顺序排列，一句一行。段号即页面地址 `#f=段号`。改完可用 `node tools/readthrough.mjs --apply 文件` 写回（只含部分段也可）。',''];
+const out=['# 宋代疆域图 · 全片讲稿通读稿','','按播放顺序排列，一句一行。段号即页面地址 `#f=段号`。改完可用 `node tools/readthrough.mjs --apply 文件` 写回（只含部分段也可）。',''];
 let n=0,chars=0,cur=null;
 for(const {f,a} of film){out.push(`## ${f.replace('.json','')}`,'');
   for(const x of a){n++;chars+=x.t.length;

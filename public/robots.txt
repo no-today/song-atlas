@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://song-atlas.notoday.dev/sitemap.xml
