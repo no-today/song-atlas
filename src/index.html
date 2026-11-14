@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>五代两宋舆地沿革图</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;900&display=swap" rel="stylesheet">
+<style>
+/*@css*/
+</style>
+</head>
+<body>
+<div id="mapwrap">
+  <div id="stage">
+  <svg id="map" class="m-grand" role="img" aria-label="宋代疆域与周边政权地形图" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="cland"><path id="landp"/></clipPath>
+      <g id="clips"></g>
+    </defs>
+    <rect x="-3000" y="-3000" width="8000" height="8000" fill="#b3c2ba"/>
+    <image id="relief" x="0" y="0" preserveAspectRatio="none"/>
+    <g class="terr" id="g-terr" clip-path="url(#cland)"></g>
+    <g id="g-gain" clip-path="url(#cland)"></g>
+    <g id="g-zone" clip-path="url(#cland)"></g>
+    <g id="g-water">
+      <path id="lakes" fill="#b7cbc6" stroke="#4d7483" stroke-width=".5"/>
+      <path id="rv3" class="lod2" fill="none" stroke="#4d7483" stroke-width=".3" opacity=".6"/>
+      <path id="rv2" fill="none" stroke="#4d7483" stroke-width=".45" opacity=".65"/>
+      <path id="rv1" fill="none" stroke="#3f6878" stroke-width=".8" opacity=".85"/>
+      <path id="rv0" fill="none" stroke="#35606f" stroke-width="1.25" opacity=".9"/>
+      <g id="g-hriv"></g>
+    </g>
+    <use id="coast" href="#landp" fill="none" stroke="#3a4f52" opacity=".8"/>
+    <g id="g-nat"></g>
+    <g id="g-tribe"></g>
+    <g id="g-circ"></g>
+    <g id="g-rt" class="rt"></g>
+    <g id="g-pl" class="pl"></g>
+    <g id="g-city"></g>
+    <g id="g-gar"></g>
+    <g id="g-ev"></g>
+    <g id="g-bt"></g>
+  </svg>
+  </div>
+  <svg id="loc" aria-label="方位小图，点击回到全景" role="button"><path id="loc-land"/><path id="loc-core"/><rect id="loc-rect"/></svg>
+  <button id="ptoggle" aria-expanded="true" aria-controls="panel">收起 ›</button>
+  <p id="nr-cap" hidden></p>
+  <div id="nr-sub" hidden aria-live="off"></div>
+  <div id="narr" hidden>
+    <button id="nr-prev" aria-label="上一段" title="上一段（←）">◀</button><button id="nr-play" aria-label="播放" title="播放/暂停（空格）">❚❚</button><button id="nr-next" aria-label="下一段" title="下一段（→）">▶</button>
+    <span class="n" id="nr-n"></span>
+    <button id="nr-voice" aria-pressed="true" title="配音讲解（无音频或离线时用浏览器朗读）">配音</button>
+    <button id="nr-exit" title="退出（Esc）">退出</button>
+  </div>
+  <div class="tools">
+    <div class="layers" id="layers" hidden>
+      <label><input type="checkbox" id="ly-terr" checked>疆域设色</label>
+      <label><input type="checkbox" id="ly-nat" checked>山川名</label>
+      <label><input type="checkbox" id="ly-city" checked>城邑关隘</label>
+      <label><input type="checkbox" id="ly-ev" checked>大事</label>
+      <label><input type="checkbox" id="ly-rt" checked>进军路线</label>
+      <label><input type="checkbox" id="ly-water" checked>河湖</label>
+      <label><input type="checkbox" id="ly-gar" checked>驻军</label>
+      <label><input type="checkbox" id="ly-circ" checked>路、道名</label>
+    </div>
+    <div class="zoom"><button id="lytoggle" aria-expanded="false" aria-controls="layers">图层</button><button id="exptoggle" class="sw" role="switch" aria-checked="false" title="放大后显示州府军、路名与驻军"><i></i>细览</button><button id="zin" aria-label="放大">＋</button><button id="zout" aria-label="缩小">－</button><button id="zfit">全图</button></div>
+  </div>
+  <div class="scale" id="scale"><i></i><span></span></div>
+</div>
+
+<aside id="panel">
+  <div class="now">
+    <div class="yr"><b id="n-year">960</b><span id="n-reign"></span></div>
+    <div class="snap"><button class="step" id="sprev" aria-label="上一幅态势">‹</button><em id="n-snapyr"></em><span id="n-snap"></span><button class="step" id="snext" aria-label="下一幅态势">›</button></div>
+  </div>
+  <div class="card" id="card"></div>
+  <div id="evwrap"></div>
+  <div id="battlebox" hidden></div>
+</aside>
+
+<div id="time">
+  <button id="play" aria-label="播放全片" title="播放/暂停全片：按讲稿从当前年份连播到宋亡，暂停后再点从当前段继续">▶</button>
+  <div class="track">
+    <div class="reigns" id="reigns"></div>
+    <div class="ticks" id="ticks"></div>
+    <input type="range" id="yr" min="936" max="1279" step="1" value="960" aria-label="年份">
+  </div>
+  <div class="tnote"><span>拖动滑块逐年查看；刻度为绘有疆域态势的 <span id="snapn"></span> 个年份，其间沿用最近一幅。</span><button id="aboutbtn">资料与说明</button></div>
+</div>
+
+<div id="about" role="dialog" aria-modal="true" aria-labelledby="ab-h"><div>
+  <h2 id="ab-h">资料与说明</h2>
+  <p>本图以真实地理数据为底，叠绘自五代后晋立国（936年）至宋亡三百余年间各年份的疆域态势、周边政权、大事与进军路线。</p>
+  <ul>
+    <li><b>全片播放</b>：点时间轴左端的播放键，从当前年份起（未选年份时从 936 年起）按讲稿一路讲到 1279 年：换一幅疆域态势时讲天下大势，每件大事镜头飞过去讲解，遇到战役接着逐步演示，讲解以字幕压在地图底部显示，当前一段的标题在地图上方，可开关配音。播放中鼠标静止片刻，底部控制条自动隐去，移动鼠标（触屏点地图）即出现；控制条可暂停、跳上一段下一段或退出，也可用空格键播放/暂停、← → 键换段。暂停后再点从当前一段继续。地址栏随进度变化，可直接复制分享到全片某段、某年或某战某步。</li>
+    <li><b>读图方式</b>：平时为「天下大势」，只留政权、都城与重镇，配每幅态势的格局提要、疆土变化与兵力；切换到下一幅态势时，新易手的地区会闪烁高亮；点右侧带“解说”的战役进入「战役解说」聚焦一场战役，只显示相关路线与地名，按步骤演示行军、交战、败退、城池易手与疆土变化，并列出各方伤亡，控制条右端或 Esc 退出；左下角的「细览」开关打开后，放大可见全部州府军、路名与驻军。</li>
+    <li><b>底图</b>：海岸线、河流、湖泊与晕渲地形取自 Natural Earth 公有领域数据，采用兰伯特等角圆锥投影（中央经线东经105°，标准纬线北纬25°、45°）。</li>
+    <li><b>疆界</b>：参照谭其骧主编《中国历史地图集》第六册（宋·辽·金时期）及通行史籍所载州军归属手工勾绘，属学术近似，误差可达数十公里。古代并无勘定的边界线，羁縻州、部族地区和荒漠草原尤其只能示意。</li>
+    <li><b>海岸线为今貌</b>：宋代苏北海岸在今范公堤一线，黄河三角洲、长江口、渤海湾西岸也比今天靠内。</li>
+    <li><b>黄河下游</b>按时期重绘：1048年以前走京东故道由今滨州一带入海；1048年商胡决口后北流至今天津附近入海（其间曾有东流、二股并行）；1128年杜充决河后南下夺泗入淮，实际流路多股摆动，图中仅示其大势。洪泽湖等后世形成的湖泊已删去，洞庭湖、梁山泊为示意补绘。</li>
+    <li><b>五代十国</b>：起于936年后晋立国、割燕云；936—937年沿用938年一幅。各国疆界变动频繁，图中取各幅年份前后的大致范围，虔州、秦凤等一度自立或几经易手的地区从简。</li>
+    <li><b>1127年</b>的宋金界线为靖康和议所划的黄河一线，并非实际控制线；<b>1131年</b>、<b>1276年</b>为大致的对峙形势。</li>
+    <li><b>吐蕃诸部、漠北诸部</b>不是统一政权，设色范围只表示分布；辽、金、蒙古北界均为名义范围。</li>
+    <li><b>兵力数字</b>：宋军兵额据《宋史·兵志》所载开宝、至道、天禧、庆历、元丰各朝数字，南宋据《建炎以来朝野杂记》；辽、夏、金、蒙古的数字出自各自正史或《史集》，多为号称或户数，只宜作量级参考。</li>
+    <li><b>战役</b>：将帅、兵力与路线据《宋史》《辽史》《金史》《元史》《续资治通鉴长编》等所载整理。史书兵力多为号称之数，双方记载常有出入，图中照录并注明“号”，只宜作量级参考；伤亡与战果同样多出自胜方记载，标“不详”者为史无明文。路线与败退方向为示意。</li>
+    <li><b>细览中的地名与驻军</b>：州府军名以北宋后期建置为主；驻军取各时期有明确记载的统兵机构，南宋都统司兵额据《建炎以来朝野杂记》所载乾道年间数字，西夏监军司等治所有的并无定论，标为约略者尤其如此。</li>
+    <li><b>地名</b>：城邑用当时名称，山名多用今名，河名兼采宋人称谓。大事纪年以农历年对应的公历年为准，岁末事件可能跨入下一公历年。</li>
+    <li><b>补绘年份</b>：1073、1125、1227、1273 四幅由相邻年份按史籍所载州军易手推绘，比其余各幅更粗略；1227 年山东为李全等割据，图中归蒙古示意。</li>
+    <li><b>勘误</b>：史实核查记录见项目 docs/勘误.md、docs/勘误-南宋.md；发现错误欢迎指出。</li>
+  </ul>
+  <button class="ghost" id="aboutclose">关闭</button>
+</div></div>
+
+<script>
+/*@data*/
+/*@js*/
+</script>
+</body>
+</html>

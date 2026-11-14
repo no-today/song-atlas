@@ -1,0 +1,18 @@
+{
+  "name": "song-atlas",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node tools/dev.mjs",
+    "build": "STRICT_ARMY=1 STRICT_FILM=1 node tools/check.mjs && node tools/build.mjs",
+    "check": "STRICT_ARMY=1 STRICT_FILM=1 node tools/check.mjs",
+    "smoke": "node tools/smoke.mjs",
+    "fmt": "node tools/fmt.mjs",
+    "voice": "node tools/voice.mjs",
+    "derive": "node tools/derive.mjs",
+    "read": "node tools/readthrough.mjs"
+  },
+  "devDependencies": {
+    "polygon-clipping": "^0.15.7"
+  }
+}
