@@ -36,6 +36,8 @@
     <defs>
       <clipPath id="cland"><path id="landp"/></clipPath>
       <g id="clips"></g>
+      <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#e8dcc0" fill-opacity=".45"/><line x1="0" y1="0" x2="0" y2="7" stroke="#6b5a44" stroke-width="1.3" stroke-opacity=".45"/></pattern>
+      <mask id="mfree" maskUnits="userSpaceOnUse" x="-3000" y="-3000" width="8000" height="8000"><rect x="-3000" y="-3000" width="8000" height="8000" fill="#fff"/><path id="mfree-p" fill="#000"/></mask>
     </defs>
     <rect x="-3000" y="-3000" width="8000" height="8000" fill="#b3c2ba"/>
     <image id="relief" x="0" y="0" preserveAspectRatio="none"/>
@@ -110,7 +112,7 @@
 
 <div id="about" role="dialog" aria-modal="true" aria-labelledby="ab-h"><div>
   <h2 id="ab-h">资料与说明</h2>
-  <p>本图以真实地理数据为底，叠绘自五代后晋立国（936年）至宋亡三百余年间各年份的疆域态势、周边政权、大事与进军路线。</p>
+  <p>本图以真实地理数据为底，叠绘自五代后晋立国（936年）至宋亡三百余年间各年份的疆域态势、周边政权、大事与进军路线。斜线浅底为部族杂处、无统一政权之地。</p>
   <ul>
     <li><b>全片播放</b>：点时间轴左端的播放键，从当前年份起（未选年份时从 936 年起）按讲稿一路讲到 1279 年：换一幅疆域态势时讲天下大势，每件大事镜头飞过去讲解，遇到战役接着逐步演示，讲解以字幕压在地图底部显示，当前一段的标题在地图上方，可开关配音。播放中鼠标静止片刻，底部控制条自动隐去，移动鼠标（触屏点地图）即出现；控制条可暂停、跳上一段下一段或退出，也可用空格键播放/暂停、← → 键换段。暂停后再点从当前一段继续。地址栏随进度变化，可直接复制分享到全片某段、某年或某战某步。</li>
     <li><b>读图方式</b>：平时为「天下大势」，只留政权、都城与重镇，配每幅态势的格局提要、疆土变化与兵力；切换到下一幅态势时，新易手的地区会闪烁高亮；点右侧带“解说”的战役进入「战役解说」聚焦一场战役，只显示相关路线与地名，按步骤演示行军、交战、败退、城池易手与疆土变化，并列出各方伤亡，控制条右端或 Esc 退出；左下角的「细览」开关打开后，放大可见全部州府军、路名与驻军。</li>

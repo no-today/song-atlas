@@ -147,7 +147,7 @@ body.nopanel #panel{display:none}
 .terr g.loose path.o{stroke-dasharray:calc(4px*var(--s)) calc(3px*var(--s))}
 @media (prefers-reduced-motion:no-preference){#g-terr.fresh{animation:terrin .45s ease-out}}
 @keyframes terrin{from{opacity:.25}to{opacity:1}}
-.terr path.f{cursor:pointer}
+.terr path.f{cursor:pointer}.terr rect.free{pointer-events:none}
 .terr path.e{fill:none;pointer-events:none}
 .terr path.o{fill:none;stroke-linejoin:round;pointer-events:none}
 .terr g.sel path.f{fill-opacity:.5}

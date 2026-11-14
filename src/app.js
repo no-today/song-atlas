@@ -94,6 +94,8 @@ function polInfo(id,sy){const p=C.pol[id];let name=p[0],desc=p[3];
   return {name,desc,color:p[1],size:p[2]}}
 function shade(hex){const n=parseInt(hex.slice(1),16);const f=v=>Math.round(v*.5).toString(16).padStart(2,'0');return '#'+f(n>>16)+f(n>>8&255)+f(n&255)}
 function drawSnap(i){snapIdx=i;const s=SNAP[i],gt=$('g-terr'),gp=$('g-pl');gt.textContent='';gp.textContent='';gt.classList.remove('fresh');void gt.getBoundingClientRect();gt.classList.add('fresh');
+  // 诸部底：无政权覆盖的陆地（部族杂处之地）铺浅色斜线，表示「诸部」而非漏画
+  $('mfree-p').setAttribute('d',s.p.map(p=>HIST.shapes[p[1]]).join(''));el('rect',{class:'free',x:-3000,y:-3000,width:8000,height:8000,fill:'url(#hatch)',mask:'url(#mfree)'},gt);
   s.p.forEach(([id,h])=>{const inf=polInfo(id,s.y),d=HIST.shapes[h];const loose=id==='tibet';const g=el('g',{'data-id':id,class:(CORE.has(id)?'core':'')+(loose?' loose':'')},gt);
     el('path',{class:'f',d,fill:inf.color,'fill-opacity':CORE.has(id)?.36:(loose?.17:.28)},g).addEventListener('click',ev=>{ev.stopPropagation();select(id)});
     el('path',{class:'e',d,stroke:inf.color,'stroke-opacity':.42,'clip-path':`url(#c${h})`},g);
