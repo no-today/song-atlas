@@ -12,7 +12,7 @@ const root=join(dirname(fileURLToPath(import.meta.url)),'..');
 const manifest=join(root,'data/voice.json'),cache=join(root,'.cache/voice');
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const short=value=>sha(value).slice(0,16);
-const params={audio_params:{format:'mp3',sample_rate:24000,speech_rate:25,enable_subtitle:true},tone_fidelity:true};
+const params={audio_params:{format:'mp3',sample_rate:24000,speech_rate:-12,enable_subtitle:true},tone_fidelity:true};
 const stats={synth:0,upload:0,skip:0,words:0,tm:0,unaligned:0},failures=[];
 let env={};
 
