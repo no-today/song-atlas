@@ -31,7 +31,7 @@
   - `voice` 配音清单 `{base,au:{文字哈希:音频文件名},tm:{文字哈希:[厘秒差,字下标差,…]}}`（首词为绝对值，后续为差值），`tools/voice.mjs` 生成，`--tm` 只补时间戳；build 填入音频地址与时间戳（站点/结语 `tm`、战役步骤 `[4]`）；`lexicon` 为复刻音色读音表
   - `snap-edits` 派生态势的 ops（见 tools/derive.mjs 文件头）；派生出的态势不要手改 snaps/shapes
 - `assets/relief.jpg`：晕渲地形底图
-- `public/`：部署时原样拷到站点根目录（robots.txt、sitemap.xml、分享预览图 og.jpg）
+- `public/`：部署时原样拷到站点根目录（robots.txt、sitemap.xml、分享预览图 og.jpg、图标 favicon.ico/icon-*.png/apple-touch-icon.png）
 - `tools/`：build / check / smoke / dev / fmt / derive；`geo.mjs` 有投影常数与 `city`/`border`/`ll` 查询命令
 - 地址：`#y=年`、`#b=战役名&s=步`、`#f=段`，状态变化即写回地址，可直接分享
 - `docs/`：史实核查与讲稿出处记录（`勘误*.md`、`战役出处-*.md`、`大事出处-*.md`）
