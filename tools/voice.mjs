@@ -7,6 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
 import {loadData,narrations} from './data.mjs';
 import {writeJson} from './json.mjs';
+import {alignIssue} from './voice-align.mjs';
 
 const root=join(dirname(fileURLToPath(import.meta.url)),'..');
 const manifest=join(root,'data/voice.json'),cache=join(root,'.cache/voice');
@@ -154,6 +155,11 @@ async function synthesize(item){
   }
   const audio=Buffer.concat(frames);
   checkTake(item.text,sentences,audio);
+  // 上传带一年 immutable 缓存：已有本地或线上版本时换新文件名，否则浏览器/CDN 会继续用旧音频配新时间戳
+  if(item.published||existsSync(item.local)){
+    const file=`${item.fsha}-${short(audio).slice(0,6)}.mp3`;
+    Object.assign(item,{file,local:join(cache,file),timing:join(cache,file.replace(/\.mp3$/,'.json'))});
+  }
   // 完整收到并确认成功后才让缓存文件可见；上传重试无需再次计费合成。先写时间戳，mp3 落盘即视为缓存完整。
   writeFileSync(item.timing,JSON.stringify(sentences));
   writeFileSync(item.local+'.tmp',audio);
@@ -204,7 +210,7 @@ async function verify(voice,base){
   console.log(`校验 ${files.length} 个文件 / 失败 ${failed} 个`);
   if(failed)process.exitCode=1;
 }
-// 合成结果自检：偶发整段尾部没读（音频在中途结束）、尾部长静音、句中长停顿——都会让字幕与声音对不上，抛错触发重合成。
+// 合成结果自检：偶发整段尾部没读（音频在中途结束）、尾部长静音、句中长停顿、时间戳错位（见 voice-align.mjs）——都会让字幕与声音对不上，抛错触发重合成。
 const PUNCT=/[，。！？；：、“”「」《》\s]/;
 function takeIssue(text,sentences,bytes){
   let cursor=0,prevEnd=0,pause=0;
@@ -218,7 +224,14 @@ function takeIssue(text,sentences,bytes){
   if(pause>4)return `句中停顿 ${pause.toFixed(1)} 秒`;
   return '';
 }
-function checkTake(text,sentences,bytes){const issue=takeIssue(text,sentences,mp3Frames(bytes).length*FRAME);if(issue)throw new Error('合成不完整：'+issue)}
+let noAlign=false;
+function fullIssue(text,sentences,bytes){
+  const issue=takeIssue(text,sentences,mp3Frames(bytes).length*FRAME);if(issue)return issue;
+  const align=alignIssue(bytes,sentences);
+  if(align===null&&!noAlign){noAlign=true;console.warn('未找到 ffmpeg，跳过时间戳错位自检')}
+  return align||'';
+}
+function checkTake(text,sentences,bytes){const issue=fullIssue(text,sentences,bytes);if(issue)throw new Error('合成不完整：'+issue)}
 function compressTiming(text,sentences){
   const out=[];let cursor=0,prevTime=0,prevIndex=0;
   for(const sentence of sentences)for(const {word,startTime} of sentence.words||[]){
@@ -281,13 +294,14 @@ async function main(){
   const items=texts.map(({text,tsha,segs})=>{
     const localDict=dict.filter(entry=>text.includes(entry.split('/')[0])).sort();
     const fsha=short(JSON.stringify({text,speaker:env.VOLC_SPEAKER,params,dict:localDict}));
-    const file=fsha+'.mp3';
-    return {text,tsha,segs,file,dict:localDict,local:join(cache,file),timing:join(cache,fsha+'.json'),logid:'无'};
+    // 重合成过的段文件名为 fsha-音频哈希.mp3，清单里记的是哪个就用哪个
+    const file=voice.au[tsha]?.startsWith(fsha)?voice.au[tsha]:fsha+'.mp3';
+    return {text,tsha,segs,fsha,file,published:voice.au[tsha]===file,dict:localDict,local:join(cache,file),timing:join(cache,file.replace(/\.mp3$/,'.json')),logid:'无'};
   });
   const selected=items.filter(item=>(opts.only===undefined||item.text.startsWith(opts.only))&&item.segs.some(n=>n>=opts.from&&n<=opts.to));
-  // --fix：已合成的段里，自检不过的（尾部没读、长静音、长停顿）强制重合成
+  // --fix：已合成的段里，自检不过的（尾部没读、长静音、长停顿、时间戳错位）强制重合成
   if(opts.fix){
-    for(const item of selected)if(cached(item)){const issue=takeIssue(item.text,JSON.parse(readFileSync(item.timing,'utf8')),mp3Frames(readFileSync(item.local)).length*FRAME);if(issue){item.redo=true;console.log(`#${item.segs.join(',')} ${issue}`)}}
+    for(const item of selected)if(cached(item)){const issue=fullIssue(item.text,JSON.parse(readFileSync(item.timing,'utf8')),readFileSync(item.local));if(issue){item.redo=true;console.log(`#${item.segs.join(',')} ${issue}`)}}
   }
   const pending=selected.filter(item=>opts.redo||item.redo||voice.au[item.tsha]!==item.file);
   stats.skip=selected.length-pending.length;
