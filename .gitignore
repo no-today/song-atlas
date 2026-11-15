@@ -4,6 +4,9 @@ dist/
 .claude/
 .env
 .cache/voice/
+.cache/venv/
+.cache/dem/
+tiles/
 plans/
 .deploy/
 .wrangler/

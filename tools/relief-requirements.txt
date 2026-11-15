@@ -1,0 +1,5 @@
+# Python 3; install inside .cache/venv (no GDAL command-line programs).
+numpy==2.5.4
+Pillow==13.0.0
+rasterio==1.5.2
+scipy==1.18.1
