@@ -81,7 +81,7 @@ function pickEvent(i){const e=C.ev[i];filmEnd();if(e[6])return enterBattle(i);
 const pct=y=>(y-Y0)/(1279-Y0)*100;
 REIGN.slice(0,-1).forEach((r,i)=>{const s=document.createElement('span');s.textContent=r[1];s.title=`${r[1]} ${r[0]}—${Math.min(REIGN[i+1][0],1279)}`;s.style.width=(pct(Math.min(REIGN[i+1][0],1279))-pct(r[0]))+'%';if(r[0]>=1127||r[0]<960)s.className='s';$('reigns').appendChild(s)});
 const TICK=SNAP.map(s=>{const b=document.createElement('button');b.style.left=pct(s.y)+'%';b.title=`${s.y}年 ${s.era} ${s.t}`;b.innerHTML=`<span>${s.y}</span>`;
-  if([947,951,963,965,971,975,978,979,1127,1131,1227,1260,1273,1276].includes(s.y))b.classList.add('hide');b.addEventListener('click',()=>userYear(s.y));$('ticks').appendChild(b);return b});
+  if([947,951,963,965,971,975,978,979,1028,1038,1116,1122,1127,1131,1137,1215,1218,1227,1260,1273,1276].includes(s.y))b.classList.add('hide');b.addEventListener('click',()=>userYear(s.y));$('ticks').appendChild(b);return b});
 
 // ---------- 疆域 ----------
 function polInfo(id,sy){const p=C.pol[id];let name=p[0],desc=p[3];
