@@ -23,10 +23,10 @@ let view={cx:W/2,cy:H/2,k:1}, com={cx:W/2,cy:H/2,k:1}, base=1, cw=1, ch=1;
 // ---------- 静态图层（一次建好，之后只切换显隐） ----------
 function pt(parent,x,y,cls){return el('g',{class:'pt '+(cls||''),style:`transform:translate(${x}px,${y}px) scale(var(--s))`},parent)}
 const TIMED=[],TXT=[];const timed=(g,a,b)=>{g._r=[a,b];g._v=true;TIMED.push(g);return g};
-C.txt.forEach(t=>{const k=t[5],par=k==='t'?$('g-tribe'):k==='c'?$('g-circ'):$('g-nat');
+C.txt.forEach(t=>{const k=t[5],par=k==='t'||k==='f'?$('g-tribe'):k==='c'?$('g-circ'):$('g-nat');
   const cls=k==='M'||k==='R'||k==='c'?'lod2':(k==='r'||k==='m')&&!/黄河|大江|淮水|秦岭|太行山|祁连山|昆仑山|天山|阴山/.test(t[0])?'lod':'';
   const g=timed(pt(par,t[1],t[2],cls),t[3],t[4]),n=labelText(el('text',{class:'tx-'+k.toLowerCase(),y:4},g),t[0]);
-  const fs={m:[11,.12],r:[10.5,0],s:[15,.5],d:[12,.5],t:[12,.1],c:[11.5,.35]}[k.toLowerCase()]||[11,0];g._tl=[t[1],t[2],n,fs[0],fs[1]];TXT.push(g)});
+  const fs={m:[11,.12],r:[10.5,0],s:[15,.5],d:[12,.5],t:[12,.1],f:[16,.3],c:[11.5,.35]}[k.toLowerCase()]||[11,0];g._tl=[t[1],t[2],n,fs[0],fs[1]];TXT.push(g)});
 // 括注拆成小一号浅色字（只改显示）：「临安府（行在）」→ 临安府 + 小字「行在」；返回折算字数（括注按 .78 计）
 function labelText(t,name){const m=name.match(/^(.+?)（(.+)）$/);if(!m){t.textContent=name;return name.length}
   t.textContent=m[1];el('tspan',{class:'pa',dx:'.25em'},t).textContent=m[2];return m[1].length+m[2].length*.78+.3}
@@ -94,8 +94,8 @@ function polInfo(id,sy){const p=C.pol[id];let name=p[0],desc=p[3];
   return {name,desc,color:p[1],size:p[2]}}
 function shade(hex){const n=parseInt(hex.slice(1),16);const f=v=>Math.round(v*.5).toString(16).padStart(2,'0');return '#'+f(n>>16)+f(n>>8&255)+f(n&255)}
 function drawSnap(i){snapIdx=i;const s=SNAP[i],gt=$('g-terr'),gp=$('g-pl');gt.textContent='';gp.textContent='';gt.classList.remove('fresh');void gt.getBoundingClientRect();gt.classList.add('fresh');
-  // 诸部底：无政权覆盖的陆地（部族杂处之地）铺浅色斜线，表示「诸部」而非漏画
-  $('mfree-p').setAttribute('d',s.p.map(p=>HIST.shapes[p[1]]).join(''));el('rect',{class:'free',x:-3000,y:-3000,width:8000,height:8000,fill:'url(#hatch)',mask:'url(#mfree)'},gt);
+  // 诸部底：无政权覆盖的陆地（部族杂处之地）只压一层淡纸色，露出地形；域外政权另以 f 类字样标出
+  $('mfree-p').setAttribute('d',s.p.map(p=>HIST.shapes[p[1]]).join(''));el('rect',{class:'free',x:-3000,y:-3000,width:8000,height:8000,fill:'#f3ead2','fill-opacity':.2,mask:'url(#mfree)'},gt);
   s.p.forEach(([id,h])=>{const inf=polInfo(id,s.y),d=HIST.shapes[h];const loose=id==='tibet';const g=el('g',{'data-id':id,class:(CORE.has(id)?'core':'')+(loose?' loose':'')},gt);
     el('path',{class:'f',d,fill:inf.color,'fill-opacity':CORE.has(id)?.36:(loose?.17:.28)},g).addEventListener('click',ev=>{ev.stopPropagation();select(id)});
     el('path',{class:'e',d,stroke:inf.color,'stroke-opacity':.42,'clip-path':`url(#c${h})`},g);
