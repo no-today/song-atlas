@@ -3,13 +3,13 @@
   "from": 1005,
   "era": "天圣六年",
   "t": "元昊取甘州",
-  "ops": [{"op":"move","to":"xia","from":["ganzhou"]}]
+  "ops": [{"op":"move","to":"xia","from":["ganzhou"],"area":[[99.5,30],[110,30],[110,50],[99.5,50]]}]
 },
 "1038": {
   "from": 1028,
   "era": "宝元元年",
   "t": "元昊称帝，西夏尽有河西",
-  "ops": [{"op":"move","to":"xia","from":["liugu","guiyi"]}]
+  "ops": [{"op":"move","to":"xia","from":["ganzhou","liugu","guiyi"]}]
 },
 "1073": {
   "from": 1044,

@@ -1,13 +1,15 @@
-// 由 data/snap-edits.json 派生新的疆域态势，写回 snaps.json / shapes.json。可重复运行（同年份会被覆盖）。
-//
-// snap-edits.json 结构：{ "<年>": { from:<基准态势年>, era, t, ops:[…] } }，按年份顺序处理，基准可以是另一幅派生态势。
-// ops 依次执行，area 是多边形顶点数组，每个点为 [经度,纬度] 或 cities.json 里的城邑全名（取其坐标）：
-//   {op:"move", to:"song", from:["xia","tibet"], area:[…]}   area 与 from 各政权的交集划给 to（to 不存在则新建），记入「新易手」高亮
-//   {op:"move", to:"jin",  from:["liao"]}                     不给 area = from 的全部疆域并入 to
-//   {op:"remove", id:"tsongkha"}                               删去该政权（领土留空）
-//   {op:"set", id:"x", area:[…]}                              直接以 area 为该政权疆域（会从其他政权中扣除）
-//   {op:"rename", id:"liao", as:"beiliao"}                     换政权 id（沿用形状）
-// 海岸会在渲染时按陆地裁切，area 伸进海里无妨。
+// 先按 data/shape-fixes.json 修整基础态势，再由 data/snap-edits.json 派生，写回 snaps.json / shapes.json。
+// shape-fixes: [{years:[起,止],ops:[…]}]，只作用于非派生幅，不生成「新易手」g。
+// 修形幅的 rawP 保存 [政权id,原形状键,原路径]，每次由该底稿重算，避免重复裁切与一位小数序列化累积误差。
+// snap-edits: {"<年>":{from:<基准态势年>,era,t,ops:[…]}}，按年处理，基准可以是另一幅派生态势。
+// ops 依次执行，area 的顶点为 [经度,纬度] 或 cities.json 城邑全名：
+//   {op:"move",to:"song",from:["xia","tibet"],area:[…]}  交集划给 to，省略 area 则全并；派生时记入 g
+//   {op:"remove",id:"tsongkha"}                         删去该政权（领土留空）
+//   {op:"set",id:"x",area:[…]}                          以 area 覆盖疆域，并从同幅其他政权扣除
+//   {op:"set",id:"x",like:[1044,"xia"],area:[…]}         以指定年政权形状 ∩ area 覆盖；模板取本次运行开始时的态势
+//   {op:"cut",id:"x",area:[…]}                          从 x 挖掉 area，留作无主地，不记 g
+//   {op:"rename",id:"liao",as:"beiliao"}                 换政权 id（沿用形状）
+// 海岸由渲染按陆地裁切；不手改派生结果。重复 derive 应得到完全相同的文件。
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
@@ -16,30 +18,56 @@ import {writeJson} from './json.mjs';
 
 const root=join(dirname(fileURLToPath(import.meta.url)),'..'),D=f=>join(root,'data',f+'.json');
 const rd=f=>JSON.parse(readFileSync(D(f),'utf8'));
-const edits=rd('snap-edits'),shapes=rd('shapes'),cities=rd('cities'),events=rd('events');
-let snaps=rd('snaps').filter(s=>!edits[s.y]);
+const edits=rd('snap-edits'),fixes=rd('shape-fixes'),shapes=rd('shapes'),cities=rd('cities'),events=rd('events');
+const original=rd('snaps').map(s=>s.rawP?{...s,p:s.rawP.map(([id,h,d])=>{shapes[h]=d;return [id,h]})}:s);
+let snaps=original.filter(s=>!edits[s.y]);
 const cityAt=n=>{const c=cities.find(c=>c[0]===n);if(!c)throw new Error(`城邑「${n}」不在 cities.json`);return [c[1],c[2]]};
-const poly=area=>{const r=area.map(p=>typeof p==='string'?cityAt(p):proj(p[0],p[1]));r.push(r[0]);return [[r]]};
+// 经纬度反投影所得的 area 与模板可能共边；压掉浮点尾差，避免裁切库把同一条边误认成极细环。
+const poly=area=>{const r=area.map(p=>(typeof p==='string'?cityAt(p):proj(p[0],p[1])).map(v=>Math.round(v*1e8)/1e8));r.push(r[0]);return [[r]]};
 const put=mp=>{const d=toPath(mp);if(!d)return null;const h=hash(d);shapes[h]=d;return h};
+const mpArea=mp=>mp.reduce((sum,p)=>sum+p.reduce((sum,r,i)=>sum+(i?-1:1)*Math.abs(r.reduce((a,v,j)=>{const n=r[(j+1)%r.length];return a+v[0]*n[1]-n[0]*v[1]},0)/2),0),0);
 
-for(const y of Object.keys(edits).map(Number).sort((a,b)=>a-b)){
-  const e=edits[y],w=`派生 ${y}`;const base=snaps.find(s=>s.y===e.from);if(!base)throw new Error(`${w}: 基准态势 ${e.from} 不存在`);
-  const geo=new Map(base.p.map(([id,h])=>[id,parsePath(shapes[h])])),order=base.p.map(p=>p[0]),gain=[];
-  const need=id=>{if(!geo.has(id))throw new Error(`${w}: ${e.from} 年态势里没有 ${id}`);return geo.get(id)};
-  for(const o of e.ops){
+function apply(base,ops,w,highlight){
+  const geo=new Map(base.p.map(([id,h])=>[id,parsePath(shapes[h])])),order=base.p.map(p=>p[0]),gain=[],changed=new Set(),hashes=new Map(base.p);
+  const need=id=>{if(!geo.has(id))throw new Error(`${w}: ${base.y} 年态势里没有 ${id}`);return geo.get(id)};
+  const drop=id=>{geo.delete(id);order.splice(order.indexOf(id),1)};
+  const save=(id,g)=>{changed.add(id);if(!g.length){if(geo.has(id))drop(id);return}if(!geo.has(id))order.push(id);geo.set(id,g)};
+  for(const o of ops){
+    const area=o.area?poly(o.area):null;
     if(o.op==='move'){let got=[];
-      for(const id of o.from){const g=need(id),part=o.area?intersection(g,poly(o.area)):g;if(!part.length){console.warn(`${w}: move→${o.to} 与 ${id} 无交集`);continue}
-        got=got.length?union(got,part):part;const rest=o.area?difference(g,poly(o.area)):[];if(rest.length)geo.set(id,rest);else{geo.delete(id);order.splice(order.indexOf(id),1)}}
+      for(const id of o.from){const g=need(id),part=area?intersection(g,area):g;if(!part.length){console.warn(`${w}: move→${o.to} 与 ${id} 无交集`);continue}
+        got=got.length?union(got,part):part;save(id,area?difference(g,area):[])}
       if(!got.length)continue;
-      if(geo.has(o.to))geo.set(o.to,union(geo.get(o.to),got));else{geo.set(o.to,got);order.push(o.to)}
-      gain.push([o.to,got])}
-    else if(o.op==='remove'){need(o.id);geo.delete(o.id);order.splice(order.indexOf(o.id),1)}
-    else if(o.op==='set'){const a=poly(o.area);for(const [id,g] of geo)if(id!==o.id){const r=difference(g,a);if(r.length)geo.set(id,r);else{geo.delete(id);order.splice(order.indexOf(id),1)}}
-      if(!geo.has(o.id))order.push(o.id);geo.set(o.id,a);gain.push([o.id,a])}
-    else if(o.op==='rename'){const g=need(o.id);geo.delete(o.id);geo.set(o.as,g);order[order.indexOf(o.id)]=o.as}
+      save(o.to,geo.has(o.to)?union(geo.get(o.to),got):got);
+      if(highlight)gain.push([o.to,got])}
+    else if(o.op==='remove'){need(o.id);drop(o.id)}
+    else if(o.op==='set'){
+      if(!area)throw new Error(`${w}: set 缺少 area`);
+      let a=area;
+      if(o.like){const [y,id]=o.like,h=original.find(s=>s.y===y)?.p.find(p=>p[0]===id)?.[1];
+        if(!h)throw new Error(`${w}: 模板 ${y} 年 ${id} 不存在`);
+        a=intersection(parsePath(shapes[h]),area)}
+      // 共边反投影会产生约 1e-8 图上单位的薄边，不让这种数值噪声改写邻国路径。
+      for(const [id,g] of geo)if(id!==o.id&&mpArea(intersection(g,a))>1e-5)save(id,difference(g,a));
+      save(o.id,a);if(highlight&&a.length)gain.push([o.id,a])}
+    else if(o.op==='cut'){
+      if(!area)throw new Error(`${w}: cut 缺少 area`);
+      save(o.id,difference(need(o.id),area))}
+    else if(o.op==='rename'){const g=need(o.id);geo.delete(o.id);geo.set(o.as,g);changed.add(o.as);order[order.indexOf(o.id)]=o.as}
     else throw new Error(`${w}: 未知 op ${o.op}`)}
-  const s={y,era:e.era,t:e.t,p:order.map(id=>[id,put(geo.get(id))]).filter(p=>p[1]),g:gain.map(([id,g])=>[id,put(g)]).filter(p=>p[1])};
-  snaps.push(s);snaps.sort((a,b)=>a.y-b.y);console.log(`${y} ← ${e.from}：${s.p.length} 个政权，新易手 ${s.g.map(g=>g[0]).join('、')||'无'}`)}
+  return {p:order.map(id=>[id,changed.has(id)?put(geo.get(id)):hashes.get(id)]).filter(p=>p[1]),g:highlight?gain.map(([id,g])=>[id,put(g)]).filter(p=>p[1]):base.g};
+}
+
+for(const f of fixes){
+  const [from,to]=f.years;
+  if(!Number.isInteger(from)||!Number.isInteger(to)||from>to)throw new Error('shape-fixes: years 应为 [起年,止年]');
+  snaps=snaps.map(s=>s.y>=from&&s.y<=to?{...s,rawP:s.rawP||s.p.map(([id,h])=>[id,h,shapes[h]]),...apply(s,f.ops,`修形 ${s.y}`,false)}:s);
+}
+for(const y of Object.keys(edits).map(Number).sort((a,b)=>a-b)){
+  const e=edits[y],w=`派生 ${y}`,base=snaps.find(s=>s.y===e.from);if(!base)throw new Error(`${w}: 基准态势 ${e.from} 不存在`);
+  const s={y,era:e.era,t:e.t,...apply(base,e.ops,w,true)};
+  snaps.push(s);snaps.sort((a,b)=>a.y-b.y);console.log(`${y} ← ${e.from}：${s.p.length} 个政权，新易手 ${s.g.map(g=>g[0]).join('、')||'无'}`)
+}
 
 // 清掉不再被引用的形状
 const used=new Set([...snaps.flatMap(s=>[...s.p,...s.g].map(p=>p[1])),...events.flatMap(e=>e[6]?e[6].steps.flatMap(st=>st[1].filter(a=>a[0]==='z').map(a=>a[1])):[])]);
