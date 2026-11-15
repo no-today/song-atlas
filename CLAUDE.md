@@ -29,8 +29,8 @@
   - `events` 大事 `[年,名,类,x,y,简述,战役?,范围,相关城邑下标]`；战役 `steps` 里 `["m",路线下标,起,止]` 按**下标**引用 routes，`["z",hash,…]` 引用 shapes
   - `film/*.json` 全片讲稿（文件名顺序即播放顺序，格式见 tools/data.mjs 文件头），链接 `#f=段序号`
   - `voice` 配音清单 `{base,au:{文字哈希:音频文件名},tm:{文字哈希:[厘秒差,字下标差,…]}}`（首词为绝对值，后续为差值），`tools/voice.mjs` 生成，`--tm` 只补时间戳；build 填入音频地址与时间戳（站点/结语 `tm`、战役步骤 `[4]`）；`lexicon` 为复刻音色读音表
-  - `shape-fixes` 基础态势修形 `[{years:[起,止],ops:[…]}]`，派生前执行；`set.like` 按模板裁形，`cut` 留空，不增「新易手」`g`。
-    修形幅的 `rawP` 保存 `[政权id,原形状键,原路径]` 底稿供重复 derive 重算；由工具维护，不手改。
+  - `shape-fixes` 基础态势修形 `[{years:[起,止],ops:[…]}]`，派生前执行；`set/add.like` 按模板覆盖/增补，`cut` 留空；基础幅修形不增 `g`。
+  - `snaps-raw` 修形幅底稿 `{年:[[政权id,原形状键,原路径],…]}`，供 derive 重算，不装入页面；由工具维护，不手改。
   - `snap-edits` 派生态势的 ops（见 tools/derive.mjs 文件头）；派生出的态势不要手改 snaps/shapes
 - `assets/relief.jpg`：晕渲地形底图
 - `public/`：部署时原样拷到站点根目录（robots.txt、sitemap.xml、分享预览图 og.jpg、图标 favicon.ico/icon-*.png/apple-touch-icon.png）
