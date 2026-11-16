@@ -71,9 +71,16 @@
   <div id="narr" hidden>
     <button id="nr-prev" aria-label="上一段" title="上一段（←）">◀</button><button id="nr-play" aria-label="播放" title="播放/暂停（空格）">❚❚</button><button id="nr-next" aria-label="下一段" title="下一段（→）">▶</button>
     <span class="n" id="nr-n"></span>
+    <button id="nr-chapters" aria-expanded="false" aria-controls="chapters">目录</button>
+    <button id="nr-rate" title="切换播放倍速">1×</button>
     <button id="nr-voice" aria-pressed="true" title="配音讲解（无音频或离线时用浏览器朗读）">配音</button>
     <button id="nr-exit" title="退出（Esc）">退出</button>
   </div>
+  <div id="opening" role="dialog" aria-labelledby="op-title" hidden><div class="opening-card">
+    <h2 id="op-title">宋代疆域图</h2><p class="subtitle">936 — 1279 · 三百四十四年的疆域与战事</p>
+    <div class="opening-acts"><button id="op-start">▶ 从头看</button><button id="op-resume" hidden></button><button id="op-explore">自己逛</button></div>
+    <p id="op-duration"></p>
+  </div></div>
   <div class="tools">
     <div class="layers" id="layers" hidden>
       <label><input type="checkbox" id="ly-terr" checked>疆域设色</label>
@@ -91,13 +98,17 @@
 </div>
 
 <aside id="panel">
+  <button id="drawer-handle" aria-expanded="false" aria-controls="panel-content" aria-label="展开解说抽屉"><i></i></button>
   <div class="now">
     <div class="yr"><b id="n-year">960</b><span id="n-reign"></span></div>
+    <div id="drawer-title"></div>
     <div class="snap"><button class="step" id="sprev" aria-label="上一幅态势">‹</button><em id="n-snapyr"></em><span id="n-snap"></span><button class="step" id="snext" aria-label="下一幅态势">›</button></div>
   </div>
+  <div id="panel-content">
   <div class="card" id="card"></div>
   <div id="evwrap"></div>
   <div id="battlebox" hidden></div>
+  </div>
 </aside>
 
 <div id="time">
@@ -110,6 +121,10 @@
   <div class="tnote"><span>拖动滑块逐年查看；刻度为绘有疆域态势的 <span id="snapn"></span> 个年份，其间沿用最近一幅。</span><button id="aboutbtn">资料与说明</button></div>
 </div>
 
+<div id="chapters" role="dialog" aria-modal="true" aria-labelledby="chapters-title" hidden><div class="chapter-card">
+  <div class="chapter-head"><h2 id="chapters-title">全片目录</h2><button class="ghost" id="chapters-close" aria-label="关闭目录">关闭</button></div>
+  <ol id="chapter-list"></ol>
+</div></div>
 <div id="about" role="dialog" aria-modal="true" aria-labelledby="ab-h"><div>
   <h2 id="ab-h">资料与说明</h2>
   <p>本图以真实地理数据为底，叠绘自五代后晋立国（936年）至宋亡三百余年间各年份的疆域态势、周边政权、大事与进军路线。斜线浅底为部族杂处、无统一政权之地。</p>

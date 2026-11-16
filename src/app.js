@@ -101,7 +101,7 @@ const EVB=C.ev.map((e,i)=>{const per=e[0]<960?'五代十国':e[0]<1127||(e[0]===
 // 年表滚到某行（约在上三分之一处），停在整行上：最上一行正好接在吸顶的分期标题之下
 function evScroll(b,behavior){const o=evwrap.offsetTop,hh=evwrap.querySelector('h3').offsetHeight,want=b.offsetTop-o-evwrap.clientHeight/3;
   let top=want;for(const r of EVB){const t=r.offsetTop-o-hh;if(t>=want-16){top=t;break}}evwrap.scrollTo({top:Math.max(0,top),behavior})}
-function pickEvent(i){const e=C.ev[i];filmEnd();if(e[6])return enterBattle(i);
+function pickEvent(i){unlockAudio();const e=C.ev[i];filmEnd();if(e[6])return enterBattle(i);
   if(mode==='battle')leaveBattle(false);setYear(e[0]);flyTo({cx:e[3],cy:e[4],k:Math.max(1.25,Math.min(view.k,2.2))})}
 
 // ---------- 年表 ----------
@@ -161,7 +161,7 @@ function setYear(y){year=Math.max(Y0,Math.min(1279,y));$('yr').value=year;
     const past=e[0]<year;if(EVB[j]._p!==past){EVB[j]._p=past;EVB[j].classList.toggle('past',past)}if(cur&&first===null)first=j});
   if(first===null){for(let j=C.ev.length-1;j>=0;j--)if(C.ev[j][0]<=year){first=j;break}}
   if(first!==null&&mode!=='battle')evScroll(EVB[first],film.playing||REDUCED?'auto':'smooth');
-  scheduleCull();if(mode!=='battle'&&!film.on)setHash('y='+year)}
+  scheduleCull();drawerTitle();if(mode!=='battle'&&!film.on)setHash('y='+year)}
 let yearPicked=false; // 用户选过年份（拖滑块、点刻度、#y= 链接）后，播放全片从该年起；否则从头
 function userYear(y){yearPicked=true;filmEnd();if(mode==='battle')leaveBattle(true);setYear(y)}
 $('yr').addEventListener('input',e=>userYear(+e.target.value));
@@ -189,7 +189,7 @@ function routeFrac(g,f){if(!g._L)g._L=g._ln.getTotalLength();const L=g._L,d=`${L
   else{g._ln.style.visibility=g._halo.style.visibility=g._ah.style.visibility='';const p=g._ln.getPointAtLength(L*f),q=g._ln.getPointAtLength(Math.max(0,L*f-3));
     g._ah.style.transform=`translate(${p.x}px,${p.y}px) rotate(${Math.atan2(p.y-q.y,p.x-q.x)*180/Math.PI}deg) scale(var(--s))`}
   g._ah.style.opacity=g._cut&&f>g._cut.f?.3:'';g._lb.style.opacity=g._cur&&f>=.45?1:0;
-  const tk=armyTok(g);if(tk){if(f<=0)tk.style.display='none';else{const p=g._ln.getPointAtLength(g._L*f);tk.style.display='';tk.style.opacity=g._cur?1:.62;tk._tf=`translate(${p.x}px,${p.y}px) scale(calc(var(--s) * ${tk._z}))`;tk.style.transform=tk._tf+` translate(${tk._dx||0}px,${tk._dy||0}px)`}}}
+  const tk=armyTok(g);if(tk){if(f<=0)tk.style.display='none';else{const p=g._ln.getPointAtLength(g._L*f);tk.style.display='';tk.style.opacity=g._cur?1:.62;tk._tf=`translate(${p.x}px,${p.y}px) scale(calc(var(--s) * ${tk._z}))`;tk.style.transform=tk._tf+` scale(${tk._shrink||1}) translate(${tk._dx||0}px,${tk._dy||0}px)`}}}
 // 部队标记：路线 r[7]=[部队名,人数,口径,兵种]，跟着行军箭头走；大小随兵力略增
 const fmtN=(n,q)=>!n?'':(q==='号'?'号':q==='约'?'约':'')+(n>=10000?(Math.round(n/1000)/10)+'万':n+'人');
 function armyTok(g){if(g._tk!==undefined)return g._tk;const a=g._army||C.rt[g._i][7];if(!a){g._tk=null;return null}
@@ -282,10 +282,10 @@ function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));const p
   let p=pre||Promise.resolve();
   if(b)p=p.then(()=>tok===bt.tok&&flyTo(boxView(b,55)));
   p.then(()=>{if(tok===bt.tok)go()})}
-function setPlay(p){bt.playing=p;if(!p)clearTimeout(bt.timer);uiSync();if(film.on)return;if(!p)narrStop();$('nr-play').textContent=p?'❚❚':'▶';$('nr-play').setAttribute('aria-label',p?'暂停':'播放')}
+function setPlay(p){bt.playing=p;if(p)drawerSet(false);if(!p)clearTimeout(bt.timer);uiSync();if(film.on)return;if(!p)narrStop();$('nr-play').textContent=p?'❚❚':'▶';$('nr-play').setAttribute('aria-label',p?'暂停':'播放')}
 $('nr-prev').addEventListener('click',()=>{if(film.on)return filmShow(film.i-1);setPlay(false);showStep(Math.max(0,bt.si-1),true)});
 $('nr-next').addEventListener('click',()=>{if(film.on)return filmShow(film.i+1);setPlay(false);showStep(Math.min(bt.steps.length-1,bt.si+1),true)});
-$('nr-play').addEventListener('click',()=>{if(film.on)return filmToggle();if(bt.playing)return setPlay(false);setPlay(true);showStep(bt.si>=bt.steps.length-1?0:bt.si+1,true)});
+$('nr-play').addEventListener('click',()=>{unlockAudio();if(film.on)return filmToggle();if(bt.playing)return setPlay(false);setPlay(true);showStep(bt.si>=bt.steps.length-1?0:bt.si+1,true)});
 // inFilm：由全片驱动（不自动连播，每步读完由全片决定下一段）
 function enterBattle(i,step0,inFilm){const e=C.ev[i],b0=e[6];if(mode!=='battle'){savedView={...view};btX=true}else clearStage();battle=i;sel=null;
   for(const g of ROUTE){if(g._f!==undefined){routeReset(g);g._f=undefined}g.classList.toggle('foc',g._ev===e[1])}
@@ -327,19 +327,38 @@ const FILM=(()=>{const F=(C.film||[]).filter(f=>f.e>=0||f.y!=null),out=[];
   for(let j=0;j<F.length;){const f=F[j],ev=f.e>=0&&C.ev[f.e];if(!ev||!ev[6]){out.push(f);j++;continue}
     const g=[];while(j<F.length&&F[j].e===f.e)g.push(F[j++]);
     for(const x of g)if(x.s===undefined)out.push(x);
-    ev[6].steps.forEach((st,k)=>out.push(g.find(x=>x.s===k+1)||{y:ev[0],e:f.e,s:k+1,t:st[0],au:st[3],tm:st[4]}));
+    ev[6].steps.forEach((st,k)=>out.push(g.find(x=>x.s===k+1)||{y:ev[0],e:f.e,s:k+1,t:st[0],au:st[3],tm:st[4],ch:f.ch}));
     for(const x of g)if(x.s==='end')out.push(x)}
   return out})();
 const FSTEP=new Map((C.film||[]).filter(f=>typeof f.s==='number').map(f=>[f.e+'|'+f.s,f]));
 // 战役第 k 步（从 0 起）读什么：全片中读当前段；手动打开的战役优先读讲稿，没有则读步骤短句
 function stepNarr(k){const f=film.on?FILM[film.i]:FSTEP.get(battle+'|'+(k+1)),st=bt.steps[k];return f?{t:f.t,au:f.au,tm:f.tm}:{t:st[0],au:st[3],tm:st[4]}}
 let film={on:false,i:0,playing:false,tok:0,timer:0,ended:false,mk:-1};
+const CHNUM=['一','二','三','四','五','六','七','八','九','十'],RATES=[1,1.25,1.5,.75];
+const storeRead=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}},storeWrite=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value))}catch{}};
+const rawProgress=storeRead('song-atlas.film',{}),progress={i:Number.isInteger(rawProgress?.i)?Math.max(0,Math.min(rawProgress.i,FILM.length-1)):0,seen:Array.isArray(rawProgress?.seen)?[...new Set(rawProgress.seen.filter(i=>Number.isInteger(i)&&i>=0&&i<10))]:[]};
+let filmRate=storeRead('song-atlas.rate',1);if(!RATES.includes(filmRate))filmRate=1;
+$('nr-rate').textContent=filmRate+'×';
+$('nr-rate').addEventListener('click',()=>{filmRate=RATES[(RATES.indexOf(filmRate)+1)%RATES.length];storeWrite('song-atlas.rate',filmRate);$('nr-rate').textContent=filmRate+'×';AU.playbackRate=filmRate;narrCur?.setRate(filmRate)});
+function chaptersClose(){const was=!$('chapters').hidden;$('chapters').hidden=true;$('nr-chapters').setAttribute('aria-expanded','false');if(was)$('nr-chapters').focus();uiShow()}
+function chaptersOpen(){const rows=C.chapters.map((c,ch)=>{const pct=progress.seen.includes(ch)?100:progress.i>=c.i&&progress.i<c.i+c.n?(progress.i-c.i)/c.n*100:0;
+  return `<li><button data-ch="${ch}"><span class="ch-num">${CHNUM[ch]}</span><span class="ch-name">${c.t}${pct>0&&pct<100?`<i class="ch-progress"><i style="width:${pct}%"></i></i>`:''}</span><span class="ch-duration">${Math.max(1,Math.round(c.d/60))} 分</span><span class="ch-seen">${progress.seen.includes(ch)?'✓':''}</span></button></li>`}).join('');
+  $('chapter-list').innerHTML=rows;$('chapters').hidden=false;$('nr-chapters').setAttribute('aria-expanded','true');$('chapters-close').focus()}
+$('nr-chapters').addEventListener('click',()=>chaptersOpen());$('chapters-close').addEventListener('click',chaptersClose);
+$('chapters').addEventListener('click',e=>{const b=e.target.closest('[data-ch]');if(b){unlockAudio();chaptersClose();filmOpen(C.chapters[+b.dataset.ch].i,true)}else if(e.target===$('chapters'))chaptersClose()});
+let openingT=0;
+function openingClose(){clearTimeout(openingT);const o=$('opening');o.classList.remove('open');o.inert=true;if(REDUCED)o.hidden=true;else openingT=setTimeout(()=>o.hidden=true,300)}
+function openingShow(){clearTimeout(openingT);const o=$('opening'),i=progress.i,c=C.chapters[FILM[i]?.ch||0],mins=Math.round(C.chapters.reduce((n,c)=>n+c.d,0)/60);
+  $('op-resume').hidden=i<=0;$('op-resume').textContent=`接着看 · 第 ${CHNUM[FILM[i]?.ch||0]} 章 ${c.t}`;
+  $('op-duration').textContent=`全片约 ${Math.floor(mins/60)} 小时 ${mins%60} 分 · 可用空格键播放、方向键翻段`;o.hidden=false;o.inert=false;requestAnimationFrame(()=>o.classList.add('open'))}
+$('op-start').addEventListener('click',()=>{unlockAudio();filmOpen(0,true)});$('op-resume').addEventListener('click',()=>{unlockAudio();filmOpen(progress.i,true)});
+$('op-explore').addEventListener('click',openingClose);$('opening').addEventListener('click',e=>{if(e.target===$('opening'))openingClose()});
 function panelSync(){const b=mode==='battle';
   $('card').hidden=b;$('evwrap').hidden=b;$('battlebox').hidden=!b;$('narr').hidden=$('nr-cap').hidden=!(b||film.on);wrap.classList.toggle('in-film',film.on);
   $('nr-exit').title=film.on?'退出全片播放（Esc）':'退出战役解说（Esc）';uiSync()}
-function filmPlay(p){film.playing=p;if(!p){narrStop();clearTimeout(film.timer)}uiSync();
+function filmPlay(p){film.playing=p;if(p)drawerSet(false);if(!p){narrStop();clearTimeout(film.timer)}uiSync();
   for(const id of ['play','nr-play']){$(id).textContent=p?'❚❚':'▶';$(id).setAttribute('aria-label',p?'暂停全片':'播放全片')}}
-function filmOpen(i,play){if(!film.on){if(mode==='battle')leaveBattle(false);film.on=true;panelSync()}filmPlay(!!play);filmShow(i)}
+function filmOpen(i,play){if(play)unlockAudio();openingClose();if(!film.on){if(mode==='battle')leaveBattle(false);film.on=true;panelSync()}filmPlay(!!play);filmShow(i)}
 // 播放/暂停：暂停后再点从当前段重读；否则从第一条年份 ≥ 当前年份的段起（没选过年份则从头）
 // 在点击里先放一段静音、念一句空话：Safari 等只认点击当下的出声，之后镜头飞完再播的音频与朗读才不会被拦下（拦下会退回机器朗读）
 const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';let unlocked=false;
@@ -356,15 +375,16 @@ function filmCap(){const f=FILM[film.i],e=f.e>=0&&C.ev[f.e];let h;
   if(!e)h=`<b class="cy">${f.y}</b>天下大势`;
   else if(f.s===undefined)h=`<b class="cy">${e[0]}</b>${e[1]}`;
   else{const n=e[6].steps.length;h=`<b class="cy">${e[0]}</b>${e[1]} · `+(f.s==='end'?'战后':`第 ${f.s}/${n} 步`)}
-  capSet(h);$('nr-n').textContent=`${film.i+1} / ${FILM.length}`;
+  capSet(h);drawerTitle();$('nr-n').textContent=`${film.i+1} / ${FILM.length}`;
   $('nr-prev').disabled=film.i===0;$('nr-next').disabled=film.i===FILM.length-1;setHash('f='+(film.i+1))}
 // 读当前段；读完（并等动画 extra 毫秒）停一下进下一段，播完最后一段停住
 function filmSay(extra){const tok=film.tok,f=FILM[film.i],say=narrate(f.t,f.au,f.s!==undefined?2400:4000,f.tm);
   Promise.all([say.done,wait(extra||0)]).then(()=>{if(tok!==film.tok||!film.playing)return;
+    if(FILM[film.i+1]?.ch!==f.ch&&!progress.seen.includes(f.ch)){progress.seen.push(f.ch);storeWrite('song-atlas.film',progress)}
     if(film.i>=FILM.length-1){film.ended=true;return filmPlay(false)}
     film.timer=setTimeout(()=>{if(tok===film.tok&&film.playing)filmShow(film.i+1)},600)})}
 // 显示第 i 段（从 0 起）；暂停中只摆好画面，不读
-function filmShow(i){if(!film.on||!FILM.length)return;i=Math.max(0,Math.min(i,FILM.length-1));film.i=i;film.ended=false;
+function filmShow(i){if(!film.on||!FILM.length)return;i=Math.max(0,Math.min(i,FILM.length-1));film.i=i;film.ended=false;progress.i=i;storeWrite('song-atlas.film',progress);
   const f=FILM[i],tok=++film.tok,isB=f.s!==undefined;clearTimeout(film.timer);narrStop();if(sel){sel=null;markSel()}
   if(mode==='battle'&&(!isB||battle!==f.e))leaveBattle(false);else if(!isB)clearStage();
   if(isB){filmMark(f.e);const n=C.ev[f.e][6].steps.length,k=f.s==='end'?n-1:f.s-1;filmCap();
@@ -381,6 +401,16 @@ function filmShow(i){if(!film.on||!FILM.length)return;i=Math.max(0,Math.min(i,FI
   filmCap();
   flyTo(v).then(()=>{if(tok!==film.tok)return;if(f.e>=0)battlePre(C.ev[f.e]);if(film.playing)filmSay(0)})}
 
+// ---------- 手机解说抽屉 ----------
+const narrow=()=>innerWidth<=720;
+function drawerTitle(){const f=film.on&&FILM[film.i],e=mode==='battle'?C.ev[battle]:f?.e>=0?C.ev[f.e]:C.ev.filter(e=>e[0]<=year).at(-1);$('drawer-title').textContent=f&&f.e<0?'天下大势':e?.[1]||'天下大势'}
+function drawerSet(open){$('panel').classList.toggle('drawer-open',open);$('drawer-handle').setAttribute('aria-expanded',open);$('drawer-handle').setAttribute('aria-label',open?'收起解说抽屉':'展开解说抽屉');bt.layout=null;scheduleCull()}
+$('drawer-handle').addEventListener('click',()=>{if(!drawerDragged)drawerSet(!$('panel').classList.contains('drawer-open'))});
+let drawerDrag=null,drawerDragged=false;
+$('panel').addEventListener('pointerdown',e=>{if(!narrow()||!e.target.closest('#drawer-handle,.now')||e.target.closest('.step'))return;drawerDragged=false;drawerDrag={y:e.clientY,open:$('panel').classList.contains('drawer-open'),dy:0}});
+$('panel').addEventListener('pointermove',e=>{if(!drawerDrag)return;const d=drawerDrag;d.dy=e.clientY-d.y;drawerDragged=Math.abs(d.dy)>5;if(drawerDragged)$('panel').setPointerCapture(e.pointerId);const span=innerHeight*.72-88,travel=d.open?Math.max(0,Math.min(span,d.dy)):Math.max(-span,Math.min(0,d.dy));$('panel').style.height=((d.open?innerHeight*.72:88)-travel)+'px'});
+const drawerUp=e=>{if(!drawerDrag)return;const d=drawerDrag;drawerDrag=null;$('panel').style.height='';drawerSet(e.type==='pointercancel'?d.open:Math.abs(d.dy)>(innerHeight*.72-88)/3?d.dy<0:d.open)};
+$('panel').addEventListener('pointerup',drawerUp);$('panel').addEventListener('pointercancel',drawerUp);
 // ---------- 图层 ----------
 $('ptoggle').addEventListener('click',()=>{const off=document.body.classList.toggle('nopanel');$('ptoggle').textContent=off?'‹ 展开右栏':'收起 ›';$('ptoggle').setAttribute('aria-expanded',!off)});
 $('lytoggle').addEventListener('click',()=>{const h=$('layers').hidden=!$('layers').hidden;$('lytoggle').setAttribute('aria-expanded',!h)});
@@ -390,7 +420,7 @@ $('lytoggle').addEventListener('click',()=>{const h=$('layers').hidden=!$('layer
 // ---------- 镜头：平滑飞行。远距离时先拉远再推近（van Wijk & Nuij 2003 的最优缩放路径） ----------
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 let flyTok=0,flying=false;
-function boxView(b,minSpan){const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2,w=Math.max(b[2]-b[0],minSpan),h=Math.max(b[3]-b[1],minSpan*.6),padX=150,padT=90,padB=230;
+function boxView(b,minSpan){const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2,w=Math.max(b[2]-b[0],minSpan),h=Math.max(b[3]-b[1],minSpan*.6),padX=narrow()?30:150,padT=narrow()?65:90,padB=narrow()?180:230;
   const k=Math.min((cw-2*padX)/(base*w),(ch-padT-padB)/(base*h)),v={cx,cy,k:Math.max(1.3,Math.min(k,8.5))};v.cy+=(padB-padT)/2/(base*v.k);return v}
 function flyTo(v){flying=true;const tok=++flyTok,W0=cw/(base*view.k),W1=cw/(base*v.k),dx=v.cx-view.cx,dy=v.cy-view.cy,d2=dx*dx+dy*dy,x0=view.cx,y0=view.cy;
   const R=Math.SQRT2;let S,at;
@@ -423,23 +453,24 @@ const VOICE={on:true},AU=new Audio();AU.preload='auto';let narrCur=null;
 // tm：[厘秒, 字下标, Δ厘秒, Δ字下标, …] → {T:秒[], P:字下标[]}
 function tmDecode(tm){if(!tm||!tm.length)return null;const T=[],P=[];let t=0,p=0;for(let i=0;i+1<tm.length;i+=2){t+=tm[i];p+=tm[i+1];T.push(t/100);P.push(p)}return {T,P}}
 function tmAt(m,sec){let lo=0,hi=m.T.length-1;if(sec<m.T[0])return 0;while(lo<hi){const mid=(lo+hi+1)>>1;if(m.T[mid]<=sec)lo=mid;else hi=mid-1}return m.P[lo]}
-function narrate(text,au,minMs,tm){narrStop();let fin,timer,raf,audio,tts=false,fell=false,live=true,pos=-1;const t0=performance.now(),map=tmDecode(tm);
+function narrate(text,au,minMs,tm){narrStop();let fin,timer,raf,audio,utterance,tts=false,fell=false,live=true,pos=-1,elapsed=0,last=performance.now(),speed=filmRate;const map=tmDecode(tm);
   const report=i=>{i=Math.max(0,Math.min(i,text.length));if(i!==pos){pos=i;narrPos(text,i)}};
-  const done=new Promise(r=>fin=r),end=()=>{if(live){live=false;cancelAnimationFrame(raf);report(text.length);fin()}};
-  const est=Math.max(minMs||4500,text.length*85);
-  const speak=()=>{if(!('speechSynthesis' in window)){timer=setTimeout(end,est);return}tts=true;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='zh-CN';u.onend=end;u.onerror=end;u.onboundary=e=>{if(live)report(e.charIndex)};speechSynthesis.speak(u);timer=setTimeout(end,est*4)};
+  const advance=()=>{const now=performance.now();elapsed+=(now-last)*speed;last=now};
+  const done=new Promise(r=>fin=r),end=()=>{if(live){live=false;cancelAnimationFrame(raf);clearTimeout(timer);report(text.length);fin()}};
+  const est=Math.max(minMs||4500,text.length*85),timed=()=>{clearTimeout(timer);timer=setTimeout(end,Math.max(0,est-elapsed)/speed)};
+  const speak=()=>{if(!('speechSynthesis' in window)){tts=false;timed();return}tts=true;if(utterance)utterance.onend=utterance.onerror=null;speechSynthesis.cancel();const offset=Math.max(0,pos),u=utterance=new SpeechSynthesisUtterance(text.slice(offset));u.lang='zh-CN';u.rate=speed;u.onend=end;u.onerror=end;u.onboundary=e=>{if(live)report(offset+e.charIndex)};speechSynthesis.speak(u);clearTimeout(timer);timer=setTimeout(end,est*4/speed)};
   const fall=()=>{if(fell||!live)return;fell=true;audio.onended=audio.onerror=null;audio.pause();speak()};
-  const tick=()=>{if(!live)return;
+  const tick=()=>{if(!live)return;advance();
     if(audio&&!fell){const ct=audio.currentTime,d=audio.duration;if(ct>0)report(map?tmAt(map,ct):Math.floor(ct/(d>0?d:est/1000)*text.length))}
-    else if(!tts)report(Math.floor((performance.now()-t0)/est*text.length));
+    else if(!tts)report(Math.floor(elapsed/est*text.length));
     raf=requestAnimationFrame(tick)};
-  if(VOICE.on&&au){audio=AU;audio.pause();audio.src=au;audio.onended=end;audio.onerror=fall;audio.play().catch(fall)}
+  if(VOICE.on&&au){audio=AU;audio.pause();audio.src=au;audio.playbackRate=speed;audio.onended=end;audio.onerror=fall;audio.play().catch(fall)}
   else if(VOICE.on)speak();
-  else timer=setTimeout(end,est);
+  else timed();
   report(0);raf=requestAnimationFrame(tick);
-  return narrCur={done,stop(){if(live)narrPos(null);live=false;cancelAnimationFrame(raf);clearTimeout(timer);if(audio){audio.onended=audio.onerror=null;audio.pause()}if(tts)speechSynthesis.cancel()}}}
+  return narrCur={done,setRate(r){if(!live)return;advance();speed=r;if(audio&&!fell)audio.playbackRate=r;else if(tts)speak();else timed()},stop(){if(live)narrPos(null);live=false;cancelAnimationFrame(raf);clearTimeout(timer);if(audio){audio.onended=audio.onerror=null;audio.pause()}if(tts){utterance.onend=utterance.onerror=null;speechSynthesis.cancel()}}}}
 function narrStop(){if(narrCur){narrCur.stop();narrCur=null}}
-$('nr-voice').addEventListener('click',()=>{VOICE.on=!VOICE.on;$('nr-voice').setAttribute('aria-pressed',VOICE.on);if(!VOICE.on)narrStop()});
+$('nr-voice').addEventListener('click',()=>{VOICE.on=!VOICE.on;$('nr-voice').setAttribute('aria-pressed',VOICE.on);if(film.on&&film.playing)filmShow(film.i);else if(mode==='battle'&&bt.playing)showStep(bt.si,true);else narrStop()});
 
 // ---------- 画面同步：字幕、城邑闪标、政权高亮、镜头缓推（只读 narrPos 信号） ----------
 // 每段文字的分句与专名按 年份+文字 缓存；narrPos 里只做下标比较和少量 DOM 改动。
@@ -491,7 +522,7 @@ function camStep(){const c=SY.cur;if(!c||!camOk(c))return camStop();const now=pe
 // 缓推：本段时长取时间戳末词（配音），否则估算
 function camPush(text){camStop();if(!camOk(SY.cur))return;const f=FILM[film.i],m=tmDecode(f.tm);
   const sec=!VOICE.on?Math.max(4.5,text.length*.085):m&&f.au?m.T[m.T.length-1]+.5:text.length*.22;
-  camInit();CAM.push={t0:performance.now(),dur:sec*1000}}
+  camInit();CAM.push={t0:performance.now(),dur:sec*1000/filmRate}}
 
 // ---------- 电影式界面：题签与自动隐藏的控制条 ----------
 // 题签：换段时淡入，4 秒后转淡常驻（随时看得出在哪一段，又不抢画面）
@@ -507,7 +538,7 @@ function uiHide(){clearTimeout(uiT);uiT=0;if(!uiPlaying())return wrap.classList.
 function uiSync(){if(!uiPlaying()){clearTimeout(uiT);uiT=0;wrap.classList.remove('idle')}else if(!uiT&&!wrap.classList.contains('idle'))uiT=setTimeout(uiHide,2500)}
 wrap.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')uiShow()});
 wrap.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'&&uiPlaying())uiHide()});
-wrap.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'||moved>4||$('narr').hidden||e.target.closest('#narr,.tools,#ptoggle,#loc,.evm,.ct'))return;
+wrap.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'||moved>4||$('narr').hidden||e.target.closest('#narr,.tools,#ptoggle,#loc,#opening,.evm,.ct'))return;
   wrap.classList.contains('idle')||!uiPlaying()?uiShow():uiHide()});
 
 // ---------- 缩放与拖动：手势期间只做合成变换，停手后再重绘 ----------
@@ -526,9 +557,9 @@ function preview(){clampView();const sc=base*view.k,ratio=view.k/com.k,tx=(com.c
   else stage.style.transform=`translate(${tx}px,${ty}px) scale(${ratio})`;locSync();clearTimeout(comT);comT=setTimeout(commit,140)}
 function zoomAt(f,px,py,now){SY.user=true;px=px??cw/2;py=py??ch/2;const s0=base*view.k,mx=view.cx+(px-cw/2)/s0,my=view.cy+(py-ch/2)/s0;
   view.k=Math.max(1,Math.min(16,view.k*f));const s1=base*view.k;view.cx=mx-(px-cw/2)/s1;view.cy=my-(py-ch/2)/s1;now?commit():preview()}
-wrap.addEventListener('wheel',e=>{if(e.target.closest('.tools,#narr,#ptoggle,#loc'))return;e.preventDefault();flyStop();const r=wrap.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*.0016),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+wrap.addEventListener('wheel',e=>{if(e.target.closest('.tools,#narr,#ptoggle,#loc,#opening'))return;e.preventDefault();flyStop();const r=wrap.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*.0016),e.clientX-r.left,e.clientY-r.top)},{passive:false});
 const ptrs=new Map();let pinch=0,moved=0;
-wrap.addEventListener('pointerdown',e=>{if(e.target.closest('.tools,#narr,#ptoggle,#loc')){moved=0;return}flyStop();ptrs.set(e.pointerId,[e.clientX,e.clientY]);moved=0;wrap.classList.add('drag')});
+wrap.addEventListener('pointerdown',e=>{if(e.target.closest('.tools,#narr,#ptoggle,#loc,#opening')){moved=0;return}flyStop();ptrs.set(e.pointerId,[e.clientX,e.clientY]);moved=0;wrap.classList.add('drag')});
 wrap.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;const p=ptrs.get(e.pointerId),dx=e.clientX-p[0],dy=e.clientY-p[1];
   if(ptrs.size===1){moved+=Math.abs(dx)+Math.abs(dy);if(moved>4){SY.user=true;try{wrap.setPointerCapture(e.pointerId)}catch(_){}view.cx-=dx/(base*view.k);view.cy-=dy/(base*view.k);preview()}ptrs.set(e.pointerId,[e.clientX,e.clientY])}
   else{ptrs.set(e.pointerId,[e.clientX,e.clientY]);const a=[...ptrs.values()],d=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);const r=wrap.getBoundingClientRect();
@@ -546,23 +577,25 @@ const CULL=[...CITY,...GAR].sort((a,b)=>a._c[4]-b._c[4]);
 // 路线上的采样点（svg 坐标与沿线比例），驻军让位用
 function routePts(g){if(!g._pts){const L=g._L||(g._L=g._ln.getTotalLength());g._pts=[];for(let i=0;i<=40;i++){const p=g._ln.getPointAtLength(L*i/40);g._pts.push([p.x,p.y,i/40])}}return g._pts}
 // 战役浮签在镜头落定后按本步终点排一次；行军帧只沿用偏移，不参与选位。
-function battleLayout(fixed,box,sc,vx,vy,ls){const notes=[...document.querySelectorAll('#g-bt .cl-note,#g-bt .take,#g-bt .act-note')],key=[bt.tok,com.cx,com.cy,com.k,cw,ch,btX,notes.length].join('/');
+function battleLayout(fixed,box,sc,vx,vy,ls){const notes=[...document.querySelectorAll('#g-bt .cl-note,#g-bt .take,#g-bt .act-note')],r0=wrap.getBoundingClientRect(),mobile=cw<=720,bottom=mobile?Math.min(ch-8,narrow()?$('panel').getBoundingClientRect().top-r0.top-8:ch-8,$('narr').hidden?ch-8:$('narr').getBoundingClientRect().top-r0.top-8):ch-2,key=[bt.tok,com.cx,com.cy,com.k,cw,ch,btX,notes.length,bottom].join('/');
   if(bt.layout?.key===key){fixed.push(...bt.layout.boxes);return}
   const occupied=fixed.slice(),placed=[],points=[],P=(x,y)=>[(x-vx)*sc,(y-vy)*sc];
   for(const g of CULL)if(g._v&&getComputedStyle(g).display!=='none')for(const n of g.children){if(n.classList.contains('fl'))continue;const b=box(n);if(b[2]-b[0]>4&&b[3]-b[1]>2)occupied.push(b)}
   if(mode==='battle')for(let s=0;s<=bt.si;s++)for(const a of bt.steps[s][1])if(a[0]==='c'){const [x,y]=P(a[1],a[2]);occupied.push([x-10*ls,y-10*ls,x+10*ls,y+10*ls])}
   for(const [g,f] of bt.ends||[])if(f>0)for(const q of routePts(g))if(q[2]<=f+.02)points.push(P(q[0],q[1]));
   for(const p of document.querySelectorAll('#g-bt .adhoc')){const L=p.getTotalLength();for(let i=0;i<=40;i++){const q=p.getPointAtLength(L*i/40);points.push(P(q.x,q.y))}}
-  const place=(n,at,b,z)=>{const [x,y]=P(...at),u=ls*z,cx=b.x+b.width/2,cy=b.y+b.height/2,candidates=[[0,0]];
+  const place=(n,at,b,z)=>{const [x,y]=P(...at),cx=b.x+b.width/2,cy=b.y+b.height/2,candidates=[[0,0]];
     for(let d=12;d<=212;d+=20)candidates.push([d-b.x,-cy],[-d-b.x-b.width,-cy],[-cx,d-b.y],[-cx,-d-b.y-b.height],[d-b.x,d-b.y],[-d-b.x-b.width,d-b.y],[d-b.x,-d-b.y-b.height],[-d-b.x-b.width,-d-b.y-b.height]);
-    let best=null;for(const [dx,dy] of candidates){const r=[x+(b.x+dx)*u-3,y+(b.y+dy)*u-3,x+(b.x+b.width+dx)*u+3,y+(b.y+b.height+dy)*u+3];let cost=Math.hypot(dx,dy)*u;
+    let best=null;for(const shrink of mobile?[1,.85]:[1])for(let [dx,dy] of candidates){const u=ls*z*shrink;
+      if(mobile){dx=Math.max((11-x)/u-b.x,Math.min(dx,(cw-11-x)/u-b.x-b.width));dy=Math.max((11-y)/u-b.y,Math.min(dy,(bottom-3-y)/u-b.y-b.height))}
+      const r=[x+(b.x+dx)*u-3,y+(b.y+dy)*u-3,x+(b.x+b.width+dx)*u+3,y+(b.y+b.height+dy)*u+3];let cost=Math.hypot(dx,dy)*u+(1-shrink)*1800;
       for(const a of occupied){const w=Math.min(r[2],a[2])-Math.max(r[0],a[0]),h=Math.min(r[3],a[3])-Math.max(r[1],a[1]);if(w>0&&h>0)cost+=1000000+w*h*1000}
-      const spill=Math.max(0,2-r[0])+Math.max(0,2-r[1])+Math.max(0,r[2]-cw+2)+Math.max(0,r[3]-ch+2);cost+=spill?1000000+spill*10000:0;
+      const spill=Math.max(0,2-r[0])+Math.max(0,2-r[1])+Math.max(0,r[2]-cw+2)+Math.max(0,r[3]-bottom);cost+=spill?1000000+spill*10000:0;
       for(const p of points)if(p[0]>r[0]-3&&p[0]<r[2]+3&&p[1]>r[1]-3&&p[1]<r[3]+3)cost+=24;
-      if(!best||cost<best.cost)best={dx,dy,r,cost}}
-    n._dx=best.dx;n._dy=best.dy;occupied.push(best.r);placed.push(best.r);
-    if(n.classList.contains('tok')){if(n._tf)n.style.transform=n._tf+` translate(${n._dx}px,${n._dy}px)`}
-    else{n.setAttribute('transform',`translate(${n._dx},${n._dy})`);const x0=b.x+n._dx,y0=b.y+n._dy,tx=Math.max(x0,Math.min(x0+b.width,0)),ty=Math.max(y0,Math.min(y0+b.height,0));n._lead.setAttribute('d',Math.hypot(tx,ty)>12?`M0,0L${tx},${ty}`:'')}};
+      if(!best||cost<best.cost)best={dx,dy,r,cost,shrink}}
+    n._dx=best.dx;n._dy=best.dy;n._shrink=best.shrink;occupied.push(best.r);placed.push(best.r);
+    if(n.classList.contains('tok')){if(n._tf)n.style.transform=n._tf+` scale(${n._shrink}) translate(${n._dx}px,${n._dy}px)`}
+    else{n.setAttribute('transform',`scale(${n._shrink}) translate(${n._dx},${n._dy})`);const x0=(b.x+n._dx)*n._shrink,y0=(b.y+n._dy)*n._shrink,tx=Math.max(x0,Math.min(x0+b.width*n._shrink,0)),ty=Math.max(y0,Math.min(y0+b.height*n._shrink,0));n._lead.setAttribute('d',Math.hypot(tx,ty)>12?`M0,0L${tx},${ty}`:'')}};
   const troops=[...(mode==='battle'?bt.ends||[]:[])].filter(([g,f])=>f>0&&armyTok(g));troops.sort((a,b)=>b[0]._tk._box.width-a[0]._tk._box.width);
   for(const [g,f] of troops){const p=g._ln.getPointAtLength((g._L||g._ln.getTotalLength())*f);place(g._tk,[p.x,p.y],g._tk._box,g._tk._z)}
   const flags=new Map();for(const n of notes)if(n.classList.contains('take')){const at=n._at.join(',');if(!flags.has(at))flags.set(at,[]);flags.get(at).push(n)}else place(n,n._at,n.getBBox(),1);
@@ -620,13 +653,15 @@ function cull(){const sc=base*com.k,vx=com.cx-cw/(2*sc),vy=com.cy-ch/(2*sc),ls=M
 $('aboutbtn').addEventListener('click',()=>$('about').classList.add('open'));
 $('aboutclose').addEventListener('click',()=>$('about').classList.remove('open'));
 $('about').addEventListener('click',e=>{if(e.target.id==='about')$('about').classList.remove('open')});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('about').classList.contains('open'))$('about').classList.remove('open');else if(film.on)filmEnd();else if(mode==='battle')leaveBattle(true)}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();if(!$('chapters').hidden)chaptersClose();else if($('about').classList.contains('open'))$('about').classList.remove('open');else if(!$('opening').hidden)openingClose();else if(film.on)filmEnd();else if(mode==='battle')leaveBattle(true);return}
+  if(!$('chapters').hidden||$('about').classList.contains('open'))return;
   if(film.on||mode==='battle')uiShow();
-  // 空格：全片播放/暂停（手动战役中为该战播放/暂停）；文字输入框与按钮聚焦时不拦，按钮的空格照常按下它
-  if(e.key===' '&&!e.repeat&&!e.target.closest('textarea,select,button,[contenteditable],input:not([type=range])')&&!$('about').classList.contains('open')){e.preventDefault();if(mode==='battle'&&!film.on)$('nr-play').click();else filmToggle();return}
-  if(e.target.tagName!=='INPUT'&&e.target.tagName!=='BUTTON'){if(film.on||mode==='battle'){if(e.key==='ArrowRight')$('nr-next').click();if(e.key==='ArrowLeft')$('nr-prev').click();return}if(e.key==='ArrowRight')userYear(year+1);if(e.key==='ArrowLeft')userYear(year-1)}});
+  if(e.key===' '&&!e.repeat&&!e.target.closest('textarea,select,[contenteditable],input:not([type=range])')){e.preventDefault();if(mode==='battle'&&!film.on)$('nr-play').click();else filmToggle();return}
+  if(e.target.closest('input,textarea,select,[contenteditable]'))return;
+  if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();if(film.on||mode==='battle')$(e.key==='ArrowRight'?'nr-next':'nr-prev').click();else userYear(year+(e.key==='ArrowRight'?1:-1))}});
 
 {const r=wrap.getBoundingClientRect();cw=r.width||1;ch=r.height||1;base=Math.max(cw/W,ch/H)}
 // 初始：960 年宋建国，视野框住宋与南方诸国
-homeView();panelSync();if(!route())setYear(960);card();addEventListener('hashchange',()=>{if(location.hash!==lastHash)route()});
+const initialParams=new URLSearchParams(location.hash.slice(1)),hasEntry=['y','b','f'].some(k=>initialParams.has(k));
+homeView();panelSync();if(!route())setYear(960);card();if(!hasEntry)openingShow();addEventListener('hashchange',()=>{if(location.hash!==lastHash){openingClose();route()}});
 $('snapn').textContent=SNAP.length;
