@@ -27,6 +27,7 @@
   - `narrative` 每幅态势的格局提要 `shi`、疆土变化 `chg`、兵力 `force`（按年取最近一条）
   - `labels` 山川部族名 `[名,x,y,起,止,类]`；`cities` `[名,x,y,起,止,级,注记方位]`；`rivers` 分期河道；`garrisons` 驻军
   - `routes` 进军路线 `[将帅,起,止,方,path,标注点,所属战役名,[部队名,人数(0=不详),口径 约/号/空,兵种 骑/步/舟/混]]`，第 8 项显示为行军箭头处的部队标记
+  - `route-waypoints` 路线途经点 `{路线下标:[城邑名或[经度,纬度],…]}`，供地形寻路重算，不装入页面；出处、约略段和核验见 `docs/路线出处.md`。
   - `events` 大事 `[年,名,类,x,y,简述,战役?,范围,相关城邑下标]`；战役 `steps` 里 `["m",路线下标,起,止]` 按**下标**引用 routes，`["z",hash,…]` 引用 shapes
   - `film/*.json` 全片讲稿（文件名顺序即播放顺序，格式见 tools/data.mjs 文件头），链接 `#f=段序号`
   - `voice` 配音清单 `{base,au:{文字哈希:音频文件名},tm:{文字哈希:[厘秒差,字下标差,…]}}`（首词为绝对值，后续为差值），`tools/voice.mjs` 生成，`--tm` 只补时间戳；build 填入音频地址与时间戳（站点/结语 `tm`、战役步骤 `[4]`）；`lexicon` 为复刻音色读音表
@@ -36,6 +37,7 @@
 - `assets/relief.jpg`：晕渲地形底图
 - `tiles/`：512px JPEG，路径 `{z}/{x}_{y}.jpg`；manifest 记录 z0–z4 的比例与 z4 覆盖，构建时压入 `TILES`，缺 manifest 时禁用瓦片。
 - `tools/relief.py`：Copernicus DEM GLO-90 / NOAA ETOPO 2022 的重采样、设色、晕渲与出图工具。
+- `tools/route-trace.py`：复用 relief 投影与 DEM 读取，按途经点寻路、锁定端点并重算步骤比例；`--write` 写回、`--verify` 对 main 做字段核对，`--report 文件` 输出长度、点数和最终路径坡度。
 - `src/app.js` 顶部 `TILE_BASE`：瓦片地址前缀，默认 `tiles/`（相对页面），可换成 R2；仅 HTTP(S) 按提交后的视野加载，file:// 使用内嵌底图。
 - `public/`：部署时原样拷到站点根目录（robots.txt、sitemap.xml、分享预览图 og.jpg、图标 favicon.ico/icon-*.png/apple-touch-icon.png）
 - `tools/`：build / check / smoke / dev / fmt / derive；`geo.mjs` 有投影常数与 `city`/`border`/`ll` 查询命令
