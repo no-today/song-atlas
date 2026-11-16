@@ -49,5 +49,6 @@ console.log('初始',res?.init?.join(' · '),`| 态势 ${res?.snaps}，战役 ${
 if(res&&!res.f3)errs.push('#f=3 打开后应停在第 3 段、处于暂停');
 if(res&&!res.bx)errs.push('战役中应自动细览、开关只切本场，退出后恢复原细览状态');
 if(res&&!res.ui)errs.push('题签应有字；播放中静止后控制条应隐去、暂停时应常驻');
+if(await run("location.protocol!=='file:'||$('g-tiles').childElementCount!==0||performance.getEntriesByType('resource').some(r=>/\\/tiles\\//.test(r.name))"))errs.push('file:// 下 g-tiles 应为空，且不应请求瓦片');
 ws.close();proc.kill();
 if(errs.length){errs.forEach(e=>console.error('异常',e));process.exit(1)}console.log('冒烟通过：无脚本异常');

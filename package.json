@@ -11,7 +11,7 @@
     "voice": "node tools/voice.mjs",
     "derive": "node tools/derive.mjs",
     "read": "node tools/readthrough.mjs",
-    "deploy": "npm run build && rm -rf .deploy && mkdir .deploy && cp dist/*.html .deploy/index.html && cp public/* .deploy/ && npx -y wrangler@latest deploy"
+    "deploy": "npm run build && rm -rf .deploy && mkdir .deploy && cp dist/*.html .deploy/index.html && cp public/* .deploy/ && if [ -d tiles ]; then cp -R tiles/ .deploy/tiles/; fi && npx -y wrangler@latest deploy"
   },
   "devDependencies": {
     "polygon-clipping": "^0.15.7"

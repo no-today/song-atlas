@@ -142,6 +142,14 @@ body.nopanel #panel{display:none}
 #rv0{stroke-width:calc(1.5px*var(--s))}#rv1{stroke-width:calc(1px*var(--s))}#rv2{stroke-width:calc(.6px*var(--s))}#rv3{stroke-width:calc(.45px*var(--s))}
 #lakes{stroke-width:calc(.6px*var(--s))}#coast{stroke-width:calc(.8px*var(--s))}
 #g-hriv path{stroke-width:calc(1.4px*var(--s))}#g-hriv path.cn{stroke-width:calc(1px*var(--s));stroke-dasharray:calc(4px*var(--s)) calc(2.2px*var(--s))}
+/* 细览与战役：水系在高清晕渲上保持清楚 */
+svg:is(.z2,.z3,.m-battle) :is(#rv0,#rv1,#rv2,#rv3,#g-hriv path){stroke:#2f6075;opacity:.95}
+svg:is(.z2,.z3,.m-battle) #rv0{stroke-width:calc(2px*var(--s))}
+svg:is(.z2,.z3,.m-battle) #rv1{stroke-width:calc(1.5px*var(--s))}
+svg:is(.z2,.z3,.m-battle) #rv2{stroke-width:calc(1px*var(--s))}
+svg:is(.z2,.z3,.m-battle) #rv3{stroke-width:calc(.8px*var(--s))}
+svg:is(.z2,.z3,.m-battle) #g-hriv path{stroke-width:calc(1.9px*var(--s))}
+svg:is(.z2,.z3,.m-battle) #g-hriv path.cn{stroke-width:calc(1.4px*var(--s))}
 .terr path.o{stroke-width:calc(.8px*var(--s))}.terr g.core path.o{stroke-width:calc(1.3px*var(--s))}
 .terr path.e{stroke-width:calc(7px*var(--s))}.terr g.core path.e{stroke-width:calc(9px*var(--s))}
 .terr g.loose path.o{stroke-dasharray:calc(4px*var(--s)) calc(3px*var(--s))}

@@ -1,3 +1,4 @@
+const TILE_BASE='tiles/';
 const W=BASE.W, H=BASE.H, NS='http://www.w3.org/2000/svg', M=260;
 const $=id=>document.getElementById(id);
 const el=(n,a={},p)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e};
@@ -8,6 +9,32 @@ $('relief').setAttribute('href',RELIEF);$('relief').setAttribute('width',W);$('r
 $('landp').setAttribute('d',BASE.land);$('lakes').setAttribute('d',BASE.lakes);
 ['rv0','rv1','rv2','rv3'].forEach((id,i)=>$(id).setAttribute('d',BASE.rivers[i]));
 for(const h in HIST.shapes){const cp=el('clipPath',{id:'c'+h},$('clips'));el('path',{d:HIST.shapes[h]},cp)}
+
+// ---------- 高清地形瓦片：只在视野提交后加载，整批解码后换层 ----------
+const TILE_ON=/^https?:$/.test(location.protocol)&&TILES, TILE_LIMIT=60;
+const tileCache=new Map(),tileLevels=TILE_ON?TILES.levels.map(([z,scale,cols,rows,present])=>({z,scale,cols,rows,present:present?new Set(present):null})):[];
+let tileTurn=0;
+if(TILE_ON){const clip=el('clipPath',{id:'ctiles'},svg.querySelector('defs'));el('rect',{width:W,height:H},clip);$('g-tiles').setAttribute('clip-path','url(#ctiles)')}
+function tileSync(){if(!TILE_ON||flying)return;
+  const turn=++tileTurn,sc=base*view.k,need=sc*Math.min(devicePixelRatio||1,2),g=$('g-tiles');
+  let li=tileLevels.findIndex(l=>l.scale>=need);if(li<0)li=tileLevels.length-1;
+  if(li<=1&&need<=TILES.embed/W){g.replaceChildren();return}
+  const bounds=[Math.max(0,view.cx-(cw/2+M)/sc),Math.max(0,view.cy-(ch/2+M)/sc),Math.min(W,view.cx+(cw/2+M)/sc),Math.min(H,view.cy+(ch/2+M)/sc)];
+  const wanted=new Map(),add=(i,x,y)=>{const l=tileLevels[i],key=`${l.z}/${x}_${y}`;
+    if(l.present&&!l.present.has(`${x}_${y}`)){if(i>0){const p=tileLevels[i-1];add(i-1,Math.floor(x*p.scale/l.scale),Math.floor(y*p.scale/l.scale))}return}
+    wanted.set(key,{key,l,x,y})};
+  const select=()=>{wanted.clear();const l=tileLevels[li],s=TILES.tile/l.scale;
+    for(let y=Math.max(0,Math.floor(bounds[1]/s));y<Math.min(l.rows,Math.ceil(bounds[3]/s));y++)for(let x=Math.max(0,Math.floor(bounds[0]/s));x<Math.min(l.cols,Math.ceil(bounds[2]/s));x++)add(li,x,y)};
+  select();while(wanted.size>TILE_LIMIT&&li>0){li--;select()}
+  const jobs=[...wanted.values()].map(t=>{let c=tileCache.get(t.key);
+    if(c){tileCache.delete(t.key);tileCache.set(t.key,c);return c.ready}
+    const img=new Image();c={...t,node:null,ready:null};tileCache.set(t.key,c);
+    c.ready=new Promise(resolve=>{img.onload=async()=>{try{await img.decode();const s=TILES.tile/t.l.scale,e=.25/t.l.scale,x=t.x*s,y=t.y*s;
+          c.node=el('image',{x:x-e,y:y-e,width:s+2*e,height:s+2*e,preserveAspectRatio:'none',href:img.src,'data-z':t.l.z});
+        }catch{}resolve(c)};img.onerror=()=>resolve(c);img.src=TILE_BASE+t.key+'.jpg'});return c.ready});
+  for(const [key] of tileCache){if(tileCache.size<=TILE_LIMIT)break;if(!wanted.has(key))tileCache.delete(key)}
+  Promise.all(jobs).then(tiles=>{if(turn!==tileTurn)return;const nodes=tiles.filter(t=>t.node).sort((a,b)=>a.l.z-b.l.z).map(t=>t.node);
+    for(const n of [...g.children])if(!nodes.includes(n))n.remove();for(const n of nodes)g.appendChild(n)})}
 
 const SNAP=HIST.snaps, YEARS=SNAP.map(s=>s.y);
 const Y0=936,CORE=new Set(['song','houjin','houhan','houzhou']);
@@ -331,19 +358,19 @@ $('lytoggle').addEventListener('click',()=>{const h=$('layers').hidden=!$('layer
 
 // ---------- 镜头：平滑飞行。远距离时先拉远再推近（van Wijk & Nuij 2003 的最优缩放路径） ----------
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
-let flyTok=0;
+let flyTok=0,flying=false;
 function boxView(b,minSpan){const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2,w=Math.max(b[2]-b[0],minSpan),h=Math.max(b[3]-b[1],minSpan*.6),padX=150,padT=90,padB=230;
   const k=Math.min((cw-2*padX)/(base*w),(ch-padT-padB)/(base*h)),v={cx,cy,k:Math.max(1.3,Math.min(k,8.5))};v.cy+=(padB-padT)/2/(base*v.k);return v}
-function flyTo(v){const tok=++flyTok,W0=cw/(base*view.k),W1=cw/(base*v.k),dx=v.cx-view.cx,dy=v.cy-view.cy,d2=dx*dx+dy*dy,x0=view.cx,y0=view.cy;
+function flyTo(v){flying=true;const tok=++flyTok,W0=cw/(base*view.k),W1=cw/(base*v.k),dx=v.cx-view.cx,dy=v.cy-view.cy,d2=dx*dx+dy*dy,x0=view.cx,y0=view.cy;
   const R=Math.SQRT2;let S,at;
   if(d2<1e-6){S=Math.log(W1/W0)/R;at=t=>[x0+t*dx,y0+t*dy,W0*Math.exp(R*t*S)]}
   else{const d1=Math.sqrt(d2),b0=(W1*W1-W0*W0+4*d2)/(2*W0*2*d1),b1=(W1*W1-W0*W0-4*d2)/(2*W1*2*d1),r0=Math.log(Math.sqrt(b0*b0+1)-b0),r1=Math.log(Math.sqrt(b1*b1+1)-b1);S=(r1-r0)/R;
     at=t=>{const s=t*S,c0=Math.cosh(r0),u=W0/(2*d1)*(c0*Math.tanh(R*s+r0)-Math.sinh(r0));return [x0+u*dx,y0+u*dy,W0*c0/Math.cosh(R*s+r0)]}}
-  if(REDUCED||!isFinite(S)||Math.abs(S)<.03){view={...v};commit();return Promise.resolve()}
+  if(REDUCED||!isFinite(S)||Math.abs(S)<.03){flying=false;view={...v};commit();return Promise.resolve()}
   const dur=Math.max(700,Math.min(3000,Math.abs(S)*900));
   return new Promise(res=>{let t0=null;const step=ts=>{if(tok!==flyTok)return res();if(t0===null)t0=ts;const u=Math.min(1,(ts-t0)/dur),e=u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2,p=at(e);
-    if(u<1){view={cx:p[0],cy:p[1],k:cw/(base*p[2])};preview();requestAnimationFrame(step)}else{view={...v};commit();res()}};requestAnimationFrame(step)})}
-function flyStop(){flyTok++}
+    if(u<1){view={cx:p[0],cy:p[1],k:cw/(base*p[2])};preview();requestAnimationFrame(step)}else{flying=false;view={...v};commit();res()}};requestAnimationFrame(step)})}
+function flyStop(){flyTok++;flying=false}
 
 // ---------- 方位小图：左上角全图缩略，红框为当前视野，点击回到全景 ----------
 function locSync(){const sc=base*view.k,w=cw/sc,h=ch/sc,r=$('loc-rect');
@@ -456,16 +483,16 @@ wrap.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'||moved>4||$('na
 function clampView(){view.k=Math.max(1,Math.min(16,view.k));const vw=cw/(base*view.k),vh=ch/(base*view.k);
   view.cx=Math.max(vw/2,Math.min(W-vw/2,view.cx));view.cy=Math.max(vh/2,Math.min(H-vh/2,view.cy))}
 let comT=0;
-function commit(){clearTimeout(comT);const r=wrap.getBoundingClientRect();if(!r.width)return;cw=r.width;ch=r.height;base=Math.max(cw/W,ch/H);clampView();
+function commit(loadTiles=true){clearTimeout(comT);const r=wrap.getBoundingClientRect();if(!r.width)return;cw=r.width;ch=r.height;base=Math.max(cw/W,ch/H);clampView();
   const sc=base*view.k;svg.setAttribute('viewBox',`${view.cx-(cw/2+M)/sc} ${view.cy-(ch/2+M)/sc} ${(cw+2*M)/sc} ${(ch+2*M)/sc}`);
   stage.style.transform='';com={...view};locSync();
   svg.style.setProperty('--s',(Math.pow(view.k,.2)/sc).toFixed(4));
   svg.classList.toggle('z1',sc>1.45);svg.classList.toggle('z2',sc>2.5);svg.classList.toggle('z3',sc>4.6);
   const km=6100/W,target=110/sc*km,nice=[20,50,100,200,300,500,1000].reduce((a,b)=>Math.abs(b-target)<Math.abs(a-target)?b:a);
-  $('scale').firstElementChild.style.width=(nice/km*sc)+'px';$('scale').lastElementChild.textContent=nice+' 公里';scheduleCull()}
+  $('scale').firstElementChild.style.width=(nice/km*sc)+'px';$('scale').lastElementChild.textContent=nice+' 公里';scheduleCull();if(loadTiles)tileSync()}
 function preview(){clampView();const sc=base*view.k,ratio=view.k/com.k,tx=(com.cx-view.cx)*sc,ty=(com.cy-view.cy)*sc;
-  if(ratio>1.7||ratio<.62||Math.abs(tx)>M*.8||Math.abs(ty)>M*.8)return commit();
-  stage.style.transform=`translate(${tx}px,${ty}px) scale(${ratio})`;locSync();clearTimeout(comT);comT=setTimeout(commit,140)}
+  if(ratio>1.7||ratio<.62||Math.abs(tx)>M*.8||Math.abs(ty)>M*.8)commit(false);
+  else stage.style.transform=`translate(${tx}px,${ty}px) scale(${ratio})`;locSync();clearTimeout(comT);comT=setTimeout(commit,140)}
 function zoomAt(f,px,py,now){SY.user=true;px=px??cw/2;py=py??ch/2;const s0=base*view.k,mx=view.cx+(px-cw/2)/s0,my=view.cy+(py-ch/2)/s0;
   view.k=Math.max(1,Math.min(16,view.k*f));const s1=base*view.k;view.cx=mx-(px-cw/2)/s1;view.cy=my-(py-ch/2)/s1;now?commit():preview()}
 wrap.addEventListener('wheel',e=>{if(e.target.closest('.tools,#narr,#ptoggle,#loc'))return;e.preventDefault();flyStop();const r=wrap.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*.0016),e.clientX-r.left,e.clientY-r.top)},{passive:false});

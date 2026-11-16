@@ -12,6 +12,7 @@
 - `npm run voice -- --dry`：统计待配音；`--only 文字前缀`、`--from 段 --to 段`（段号同 `#f=`）限量合成并上传 R2，`--redo` 强制重合成选中段，`--fix` 只重做自检不过的段（尾部没读、多出无字幕语音、长停顿；合成时也自动补尾、裁剪），`--verify` 检查音频；凭据只读 `.env`，缓存 `.cache/voice/`
 - `npm run read`：生成按播放顺序、一句一行的通读稿 `dist/全片讲稿-通读稿.md`；`node tools/readthrough.mjs --apply 文件` 按段号把改过的通读稿写回 data/film
 - `npm run smoke`：用本机 Chrome 无头打开产物，逐年拖动、讲大势、走完每个战役的每一步，有脚本异常即失败。改了 `src/app.js` 必跑
+- `.cache/venv/bin/python tools/relief.py tiles --palette D --quality 90 --out tiles --embed assets/relief.jpg`：生成地形瓦片及 2200px 离线底图（可用 `--cache` 指定主检出的 DEM 缓存）
 
 产物无依赖；工具需 Node ≥ 22（smoke 用全局 `WebSocket`），derive/geo 需 `npm i`（polygon-clipping）。
 
@@ -33,6 +34,9 @@
   - `snaps-raw` 修形幅底稿 `{年:[[政权id,原形状键,原路径],…]}`，供 derive 重算，不装入页面；由工具维护，不手改。
   - `snap-edits` 派生态势的 ops（见 tools/derive.mjs 文件头）；派生出的态势不要手改 snaps/shapes
 - `assets/relief.jpg`：晕渲地形底图
+- `tiles/`：512px JPEG，路径 `{z}/{x}_{y}.jpg`；manifest 记录 z0–z4 的比例与 z4 覆盖，构建时压入 `TILES`，缺 manifest 时禁用瓦片。
+- `tools/relief.py`：Copernicus DEM GLO-90 / NOAA ETOPO 2022 的重采样、设色、晕渲与出图工具。
+- `src/app.js` 顶部 `TILE_BASE`：瓦片地址前缀，默认 `tiles/`（相对页面），可换成 R2；仅 HTTP(S) 按提交后的视野加载，file:// 使用内嵌底图。
 - `public/`：部署时原样拷到站点根目录（robots.txt、sitemap.xml、分享预览图 og.jpg、图标 favicon.ico/icon-*.png/apple-touch-icon.png）
 - `tools/`：build / check / smoke / dev / fmt / derive；`geo.mjs` 有投影常数与 `city`/`border`/`ll` 查询命令
 - 地址：`#y=年`、`#b=战役名&s=步`、`#f=段`，状态变化即写回地址，可直接分享
