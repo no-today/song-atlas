@@ -200,6 +200,7 @@ text .pa{font-size:.78em;font-weight:400;fill:#6b5a46;letter-spacing:0}
 svg.m-battle .rt g.foc .ah{display:block}
 #g-bt .adhoc{fill:none;stroke-linecap:round;stroke-width:calc(2.6px*var(--s))}
 #g-bt .adhoc.ret{stroke-dasharray:calc(2px*var(--s)) calc(6px*var(--s));stroke-width:calc(2.4px*var(--s));opacity:.85}
+#g-bt .callout-lead{fill:none;stroke:#5d4c3a;stroke-width:.65;opacity:.7;pointer-events:none}
 #g-bt .cl-t{font-size:13px;font-weight:900;stroke:#efe4c8;stroke-width:3px}
 #g-bt .cl-l{font-size:11px;font-weight:600;fill:#2b2118;stroke-width:2.6px}
 #g-bt .tk{font-size:11px;font-weight:600;stroke-width:2.4px}
@@ -225,7 +226,9 @@ svg.m-battle .rt path.ln{stroke-dasharray:none;stroke-width:calc(2.8px*var(--s))
 svg.m-battle .rt path.halo{stroke-width:calc(5.5px*var(--s))}
 svg.m-battle .evm text{display:none}
 svg.m-battle .rt text{font-size:12.5px}
-svg.m-battle .terr path.f{fill-opacity:.2}
+svg.m-battle .terr path.f,svg.m-battle .terr g.hl path.f{fill-opacity:.08}
+svg.m-battle .terr path.e{stroke-width:calc(2.5px*var(--s))}
+svg.m-battle .terr g.core path.e{stroke-width:calc(3.5px*var(--s))}
 svg.m-battle .pl{opacity:.55}
 .pl .pt{transition:opacity .3s}.pl .pt.dim{opacity:.45}
 .ct.hid text,.c4.hid,.gar.hid{display:none!important}
@@ -293,7 +296,7 @@ svg.m-battle .rt g.hastok .rl{display:none!important}
 #mapwrap{container-type:inline-size}
 @container (max-width:720px){#narr{bottom:54px}#nr-sub{bottom:94px;max-width:92%}#mapwrap.idle #nr-sub{bottom:54px}#nr-cap{top:146px;left:14px;transform:none;max-width:calc(100% - 28px)}}
 @media (max-width:860px){#nr-sub{max-width:92%;font-size:20px}#nr-sub.long{font-size:18px}#nr-cap{font-size:13px}}
-.terr path.f{transition:fill-opacity .35s}.terr path.o{transition:stroke-width .35s,stroke-opacity .35s}
+.terr path.f{transition:fill-opacity .4s}.terr path.e{transition:stroke-width .4s}.terr path.o{transition:stroke-width .35s,stroke-opacity .35s}
 .terr g.hl path.o{stroke-width:calc(2.6px*var(--s));stroke-opacity:1}
 .terr g.hl:not(.sel) path.f{fill-opacity:.46}
 .terr g.hl path.e{stroke-opacity:.75}
