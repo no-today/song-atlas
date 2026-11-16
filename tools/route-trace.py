@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""两批路线：缓存 DEM / 底图河道 → 平滑折线 → 语义停点与反向撤退。
+"""三批路线：缓存 DEM / 底图河道、海岸 → 平滑折线 → 语义停点与反向撤退。
 
 主检出 .cache/venv/bin/python tools/route-trace.py --write --report /tmp/routes.json
 可传单个路线下标及可选 JSON 途经点表；--write 同步保存显式途经点。
@@ -13,7 +13,11 @@
 23 号港区未通过，保留 main；959 年古水道及各约略控制点见 docs/路线出处.md。
 首批几何算法保持原样；第二批去掉窗口折返，分段平滑并以共同切向接入城邑，
 每条预算 90 点，以同时容纳撤退线、满足单文件 1440 KB 上限。
-高丽和海面没有 GLO-90 缓存处只用已有 ETOPO 2022（60 角秒），不下载。
+高丽、漠北及海面缺 GLO-90 的窗口只用已有 ETOPO 2022（60 角秒），不下载。
+第三批沿用第二批平滑法，长线预算 120 点，其余 90 点；海路以全部陆地/岛屿
+多边形屏蔽 8 邻域网格，成品按 0.025 单位采样核验。75、76、77 的固定端点
+在底图陆内，保留 main。第三批河网增加河线内部接点，不改变前两批河网。
+第三批上限 1480 KB；--only 可分别重算前两批，断言 49 条记录与 main 相同。
 输出先 DP，再 Chaikin 两遍（南汉南段、剑州—大获城四遍），再对曲线作细化以符合 120 点上限。
 每段锁住途经点，保留原路线端点。全部坡度按最终一位小数 SVG 约每 95m
 采样计算，不能用寻路中间结果冒充成品。报告同时列 main、dee716b 和成品。
@@ -43,7 +47,11 @@ DEFAULT_CACHE = Path('/Users/whoog/Notoday/song-atlas/.cache/dem')
 FIRST_BATCH = {1, 2, 3, 26, 27, 28, 29, 30, 38, 39, 40, 41, 61, 64, 65}
 SECOND_BATCH = {0, *range(4, 23), 24, 25, *range(31, 34), *range(79, 88)}
 # Route 23's coastal/port reconstruction did not pass; retain main unchanged.
-BATCH = FIRST_BATCH | SECOND_BATCH
+THIRD_BATCH = {*range(34, 38), *range(42, 61), 62, 63, *range(66, 79)}
+# Fixed inland endpoints make these three sea routes impossible to validate
+# without changing the map or the authorized endpoints. Keep main verbatim.
+DEFERRED_THIRD = {75, 76, 77}
+BATCH = FIRST_BATCH | SECOND_BATCH | THIRD_BATCH
 # Explicit editorial decisions: step numbers are 1-based; None means retained
 # nearest-point mapping because there is no independent plotted stop position.
 STEP_STOPS = {
@@ -73,6 +81,26 @@ STEP_STOPS = {
     83: {2:'巴公原'}, 84: {1:'隆德府', 2:'巴公原'},
     85: {1:'寿州', 5:'楚州', 6:'迎銮镇'}, 86: {3:'滁州'},
     87: {1:'宁州（约略）', 2:'莫州'},
+    34: {}, 35: {1:'建康府', 2:'明州'},
+    36: {3:'镇江（约略）', 4:'黄天荡（原标点）'}, 37: {3:'焦山（原终点）'},
+    42: {1:'郢州', 2:'襄阳府', 3:'邓州', 4:'信阳军'},
+    43: {3:'颍昌府', 6:'朱仙镇'}, 44: {2:'顺昌府'},
+    45: {1:'和州', 3:'采石', 4:'瓜洲'}, 46: {2:'陈家岛（原终点）'},
+    47: {1:'灵璧（原标点）', 2:'宿州'}, 48: {1:'虹县（原标点）', 2:'宿州'},
+    49: {3:'宿州'}, 50: {3:'和州'}, 51: {4:'襄阳府'},
+    52: {1:None, 2:'抚州（坝上）', 3:'野狐岭', 5:'居庸关'},
+    53: {1:'黑水城', 2:'甘州', 3:'凉州', 4:'灵州', 5:'中兴府（原标点）'},
+    54: {1:'凤州', 2:'光化（约略）', 3:None, 5:'三峰山（原标点）'},
+    55: {4:None}, 56: {2:'蔡州'}, 57: {1:'蔡州'},
+    58: {1:None, 2:'汴京'}, 59: {2:'汴京'}, 60: {3:'洛阳'},
+    62: {1:'忒剌（松潘约略）', 2:None, 4:'大理'},
+    63: {2:None, 4:'大理'},
+    66: {1:'阳逻堡', 2:'鄂州'}, 67: {4:'潭州', 5:'鄂州'},
+    68: {3:'鹿门山（原标点）'}, 69: {1:'鹿门山（原标点）'},
+    70: {1:None, 3:'壹岐近岸', 4:'博多湾近岸'},
+    71: {1:'郢州', 2:'鄂州', 3:'安庆（约略）', 6:'建康府'},
+    72: {4:'芜湖（约略）'}, 73: {2:'常州', 5:'皋亭山（会师约略）'},
+    74: {3:'独松关', 5:'皋亭山（会师约略）'}, 78: {2:None},
 }
 # event, step, action index -> corresponding route; 'a' is the unchanged
 # embedded Xianrenguan attack, whose retreat must reverse that exact attack.
@@ -85,7 +113,12 @@ RETREATS = {('五路伐夏',6,0):28, ('五路伐夏',6,1):29,
             ('澶渊之盟',6,0):12, ('三川口之战',4,0):15,
             ('好水川之战',4,0):18, ('定川寨之战',4,1):19,
             ('平侬智高',3,0):21, ('宋越熙宁战争',3,1):24,
-            ('宋越熙宁战争',6,0):25, ('靖康之变',7,0):33}
+            ('宋越熙宁战争',6,0):25, ('靖康之变',7,0):33,
+            ('顺昌、郾城大捷',6,1):43,
+            ('隆兴和议',4,1):47, ('开禧北伐',6,0):50,
+            ('端平入洛',5,0):60, ('端平入洛',6,0):59,
+            ('鄂州之战',5,0):66, ('文永之役',5,0):70,
+            ('丁家洲之战',6,1):72}
 
 
 def stop_position(name):
@@ -108,7 +141,23 @@ def stop_position(name):
                '宁州（约略）':Projection().proj(116.80,38.58),
                '独流口（约略）':Projection().proj(116.92,38.99),
                '井陉（约略）':Projection().proj(114.13,38.03),
-               '扬武谷（约略）':Projection().proj(112.54,39.02)}
+               '扬武谷（约略）':Projection().proj(112.54,39.02),
+               '镇江（约略）':Projection().proj(119.44,32.20),
+               '黄天荡（原标点）':(1139.6,612.6), '焦山（原终点）':(1151.4,609.4),
+               '陈家岛（原终点）':(1152.3,503.2),
+               '灵璧（原标点）':(1099.7,578.8), '虹县（原标点）':(1107.8,579.8),
+               '抚州（坝上）':(1010.6,368.8), '中兴府（原标点）':(828.6,456.2),
+               '光化（约略）':Projection().proj(111.68,32.38),
+               '三峰山（原标点）':(1001.1,571.9),
+               '忒剌（松潘约略）':Projection().proj(103.60,32.65),
+               '鹿门山（原标点）':(976.9,638.7),
+               '安庆（约略）':Projection().proj(117.05,30.51),
+               '芜湖（约略）':Projection().proj(118.38,31.33),
+               '皋亭山（会师约略）':(1177.2,661.4),
+               '临安':(1176.1,663.9), '郾城':(1015.2,587.1), '和州':(1125.8,628.4)}
+    if name in ('对马近岸','壹岐近岸','博多湾近岸'):
+        # Battles are plotted inland; stop ships outside the displayed shore.
+        return offshore(stop_position({'对马近岸':'对马','壹岐近岸':'壹岐','博多湾近岸':'博多'}[name]))
     if name in special:
         return np.asarray(special[name],float)
     matches = [c for c in load('cities')+load('labels') if c[0]==name]
@@ -584,7 +633,8 @@ def verify(oldr, newr, olde, newe, selected):
                 assert expected[6]['steps'][si-1][1][ai]==e[6]['steps'][si-1][1][ai],('retreat not reversed',name,si,ai)
     separations = {}
     for i,names in {0:('江陵府','三江口','澧州'),10:('雁门关','朔州','应州'),
-                    14:('兴化镇','新恩县（约略）','龟州'),31:('宗哥','青唐城','廓州')}.items():
+                    14:('兴化镇','新恩县（约略）','龟州'),31:('宗哥','青唐城','廓州'),
+                    51:('光化（约略）','随州','襄阳府')}.items():
         if i not in selected:
             continue
         p = points(newr[i][4])
@@ -606,7 +656,13 @@ def verify(oldr, newr, olde, newe, selected):
             x = a[:,0]+(q[1]-a[:,1])*(b[:,0]-a[:,0])/np.where(b[:,1]!=a[:,1],b[:,1]-a[:,1],1)
             assert np.count_nonzero(cross&(q[0]<x))%2,('Korea route leaves displayed land',q)
         land_samples = len(samples)
+    sea_samples = {}
+    for i in selected & {46,70}:
+        samples = resample(points(newr[i][4]),.025)
+        assert not any(on_land(q) for q in samples),('sea route crosses displayed land',i)
+        sea_samples[str(i)] = len(samples)
     return {'reference_events_equal_except_m_and_r':True,'routes_changed':changed,
+            'sea_samples':sea_samples,
             'route14_land_samples':land_samples, 'return_separations':separations,
             'endpoints_preserved':True,'fractions_continuous_monotone':True,
             'waypoint_city_gaps':city_gaps,'retreats_match_reversed_routes':True,
@@ -663,7 +719,8 @@ def river_network(a, b, year):
         deltas = np.array([vertices[v]-vertices[u] for u,v,d in edges])
         den = np.maximum(np.sum(deltas*deltas,axis=1),1e-12)
         extra = []
-        for n in set(ends):
+        junctions = range(len(vertices)) if year in (1130,1274) else set(ends)
+        for n in junctions:
             q = vertices[n]
             u = np.clip(np.sum((q-starts)*deltas,axis=1)/den,0,1)
             dist = np.linalg.norm(starts+u[:,None]*deltas-q,axis=1)
@@ -714,17 +771,25 @@ def river_network(a, b, year):
     return p
 
 
-def trace_second(i, original, values, cities, proj, dem):
+def trace_second(i, original, values, cities, proj, dem, third=False):
     cp = [original[0],*controls(values,cities,proj),original[-1]]
     cp = np.array([q for k,q in enumerate(cp) if not k or np.linalg.norm(q-cp[k-1])>.02])
     parts = []
     turning = {0:'三江口',10:'朔州',14:'新恩县（约略）',31:'青唐城'}
+    if third and i==51:
+        turning[51] = '随州'
     turn = next((k for k,q in enumerate(cp) if i in turning and np.linalg.norm(q-stop_position(turning[i]))<.1),len(cp))
     outgoing = None
     for k,(a,b) in enumerate(zip(cp,cp[1:])):
         if k==turn:
             outgoing = np.vstack(parts)
-        if i==4 and k<values.index('采石')+1 or i==21 or i==85 and values.index('寿州')+1<=k<=values.index('扬州'):
+        if third and (i in (68,71,72) or i==37 and k>0 or i==36 and k>=values.index('平江府')+1):
+            part = river_network(a,b,1130 if i in (36,37) else 1274)
+        elif third and i==37:
+            # Locked start lies 7.16 units from the first mapped channel.
+            # Keep this explicit registration connector separate from the river.
+            part = np.array([a,b])
+        elif i==4 and k<values.index('采石')+1 or i==21 or i==85 and values.index('寿州')+1<=k<=values.index('扬州'):
             part = river_network(a,b,974 if i==4 else 1052 if i==21 else 957)
         elif i==87 and values.index('沧州')+1<=k<=values.index('霸州'):
             # The attested 959 canal is absent from base/rivers. These controls
@@ -737,6 +802,10 @@ def trace_second(i, original, values, cities, proj, dem):
             part = np.vstack([p[:-1] for p in chunks]+[chunks[-1][-1:]])
         parts.append(part)
     hard = [stop_position(v) for v in values if isinstance(v,str)]
+    if third and i==62:
+        # Split the long Songpan–Dali curve so the vertex budget can retain
+        # the narrow Minjiang gorge rather than spending it on broad bends.
+        hard += [np.array(proj.proj(*v)) for v in ((103.65,32.1),(103.4,31.5))]
     merged,group = [],[]
     for k,part in enumerate(parts):
         group.append(part)
@@ -783,7 +852,108 @@ def trace_second(i, original, values, cities, proj, dem):
         curves[k] = np.vstack((section(left,0,fa)[:-1],l))
         curves[k+1] = np.vstack((r[:-1],section(right,fb,1)))
     # 90 vertices leave room for 14 reverse paths in the 1440 KB artifact.
-    return budget_curve(curves,[1]*len(curves),max_points=90)
+    if third and i in (62,63):
+        # A 120-vertex simplification of tiny Chaikin fillets still looks like
+        # stairs at battle zoom. Reserve vertices for visible rounded turns.
+        seed,_ = budget_curve(curves,[1]*len(curves),max_points=48)
+        cuts = [0]+[int(np.linalg.norm(seed-c[-1],axis=1).argmin()) for c in curves]
+        rounded = [chaikin(chaikin(seed[first:last+1]))
+                   for first,last in zip(cuts,cuts[1:])]
+        return budget_curve(rounded,[1]*len(rounded),max_points=120)
+    limit = 120 if third and i in (34,54,55,63,67,71) else 90
+    return budget_curve(curves,[1]*len(curves),max_points=limit)
+
+
+_LAND_POLYGONS = None
+_LAND_BOUNDS = None
+
+
+def land_polygons():
+    global _LAND_POLYGONS, _LAND_BOUNDS
+    if _LAND_POLYGONS is None:
+        _LAND_POLYGONS = [points(s.rstrip('Z')) for s in re.findall(r'M[^M]+',load('base')['land'])]
+        _LAND_BOUNDS = np.array([[*p.min(axis=0),*p.max(axis=0)] for p in _LAND_POLYGONS])
+    return _LAND_POLYGONS
+
+
+def on_land(q):
+    polygons = land_polygons()
+    relevant = (_LAND_BOUNDS[:,0]<=q[0])&(_LAND_BOUNDS[:,2]>=q[0])&(_LAND_BOUNDS[:,1]<=q[1])&(_LAND_BOUNDS[:,3]>=q[1])
+    for i in np.flatnonzero(relevant):
+        a = polygons[i]
+        b = np.roll(a,-1,axis=0)
+        cross = (a[:,1]>q[1])!=(b[:,1]>q[1])
+        x = a[:,0]+(q[1]-a[:,1])*(b[:,0]-a[:,0])/np.where(b[:,1]!=a[:,1],b[:,1]-a[:,1],1)
+        if np.count_nonzero(cross&(q[0]<x))%2:
+            return True
+    return False
+
+
+def offshore(q):
+    candidates = []
+    shores = sorted((nearest(np.vstack((p,p[:1])),q) for p in land_polygons()),key=lambda v:v[2])
+    for _,hit,d in shores:
+        if candidates and d-.65>min(v[0] for v in candidates):
+            break
+        for theta in np.linspace(0,2*np.pi,33)[:-1]:
+            sea = hit+.65*np.array([np.cos(theta),np.sin(theta)])
+            if not on_land(sea):
+                candidates.append((float(np.linalg.norm(sea-q)),sea))
+    return min(candidates,key=lambda v:v[0])[1]
+
+
+def sea_trace(a,b):
+    """8-neighbour sea graph masked by every displayed mainland/island polygon."""
+    from rasterio.features import rasterize
+    from affine import Affine
+    step = .05
+    lo = np.floor((np.minimum(a,b)-7)/step)*step
+    hi = np.maximum(a,b)+7
+    w,h = np.ceil((hi-lo)/step).astype(int)+1
+    shapes = [({'type':'Polygon','coordinates':[p.tolist()]},1) for p in land_polygons()]
+    land = rasterize(shapes,out_shape=(h,w),transform=Affine(step,0,lo[0]-step/2,0,step,lo[1]-step/2),fill=0,dtype='uint8').astype(bool)
+    shore = distance_transform_edt(~land)*step
+    # Leave a visible margin offshore; prefer the coastal belt over open ocean.
+    cost = 1+200*np.maximum(0,.7-shore)**2+ .025*np.maximum(0,shore-3)**2
+    yy,xx = np.mgrid[:h,:w]
+    near_endpoint = (np.hypot(lo[0]+xx*step-a[0],lo[1]+yy*step-a[1])<.6) | (np.hypot(lo[0]+xx*step-b[0],lo[1]+yy*step-b[1])<.6)
+    blocked = land | ((shore<.4)&~near_endpoint)
+    cost[blocked] = np.inf
+    ids = np.arange(h*w,dtype=np.int32).reshape(h,w)
+    rows,cols,weights = [],[],[]
+    for dy,dx in ((0,1),(1,0),(1,1),(1,-1)):
+        y0,y1=max(0,-dy),min(h,h-dy);x0,x1=max(0,-dx),min(w,w-dx)
+        sa,sb=np.s_[y0:y1,x0:x1],np.s_[y0+dy:y1+dy,x0+dx:x1+dx]
+        good=np.isfinite(cost[sa])&np.isfinite(cost[sb])
+        if dx and dy:
+            good &= ~land[y0:y1,x0+dx:x1+dx]&~land[y0+dy:y1+dy,x0:x1]
+        rows.append(ids[sa][good]);cols.append(ids[sb][good])
+        weights.append((math.hypot(dx,dy)*(cost[sa][good]+cost[sb][good])/2))
+    rr,cc,ww=map(np.concatenate,(rows,cols,weights))
+    graph=coo_matrix((np.r_[ww,ww],(np.r_[rr,cc],np.r_[cc,rr])),shape=(h*w,)*2).tocsr()
+    ai,bi=[np.rint((q-lo)/step).astype(int) for q in (a,b)]
+    source,target=ai[1]*w+ai[0],bi[1]*w+bi[0]
+    assert not land[ai[1],ai[0]] and not land[bi[1],bi[0]],('sea control inland',a,b)
+    _,prev=dijkstra(graph,indices=source,return_predecessors=True)
+    walk=[target]
+    while walk[-1]!=source:
+        n=int(prev[walk[-1]])
+        if n<0:raise ValueError('Disconnected sea path')
+        walk.append(n)
+    walk=np.array(walk[::-1]);p=lo+np.c_[walk%w,walk//w]*step
+    p[0],p[-1]=a,b
+    return p
+
+
+def trace_third(i,original,values,cities,proj,dem):
+    if i not in (46,70):
+        return trace_second(i,original,values,cities,proj,dem,third=True)
+    cp=[original[0],*controls(values,cities,proj),original[-1]]
+    parts=[sea_trace(a,b) for a,b in zip(cp,cp[1:]) if np.linalg.norm(a-b)>.02]
+    curves=[chaikin(chaikin(simplify(p,.12))) for p in parts]
+    p,tolerance=budget_curve(curves,[1]*len(curves),max_points=120)
+    assert not any(on_land(q) for q in resample(p,.025)),('finished sea route crosses land',i)
+    return p,tolerance
 
 
 def main():
@@ -807,9 +977,9 @@ def main():
     newr, newe = load('routes'),load('events')
     table, cities, proj = load('route-waypoints'),load('cities'),Projection()
     selected = args.only or ({args.route} if args.route is not None else {int(k) for k in table})
-    if not selected <= BATCH:
-        parser.error('Only the first and second batch route indexes are authorized')
-    dem = DEM(args.cache.resolve(),proj,allow_coarse=bool(selected & SECOND_BATCH))
+    if not selected <= BATCH or selected & DEFERRED_THIRD:
+        parser.error('Unsupported or deferred route indexes; see docs/路线出处.md')
+    dem = DEM(args.cache.resolve(),proj,allow_coarse=bool(selected & (SECOND_BATCH | THIRD_BATCH)))
     previous = baseline('dee716b','routes')
     tolerances = {}
     if not args.verify:
@@ -818,7 +988,9 @@ def main():
             values = json.loads(args.waypoints) if args.waypoints else table[str(i)]
             cp = [original[0],*controls(values,cities,proj),original[-1]]
             cp = np.array([p for k,p in enumerate(cp) if k==0 or np.linalg.norm(p-cp[k-1])>.02])
-            if i in SECOND_BATCH:
+            if i in THIRD_BATCH:
+                p,tolerance = trace_third(i,original,values,cities,proj,dem)
+            elif i in SECOND_BATCH:
                 p,tolerance = trace_second(i,original,values,cities,proj,dem)
             elif i==65:
                 parts = river_parts(cp[0],cp[-1],[])
@@ -853,7 +1025,7 @@ def main():
                             parts.append(part)
                     else:
                         parts.append(dem.trace(a,b,avoid))
-            if i not in SECOND_BATCH:
+            if i not in SECOND_BATCH | THIRD_BATCH:
                 p,tolerance = finish(parts,i)
             p[0],p[-1] = original[0],original[-1]
             newr[i][4],newr[i][5] = svg(p),label(p,cities)
@@ -866,9 +1038,10 @@ def main():
     for row in stops:
         if row['method']=='语义地点' and row['route']!=65:
             assert row['gap']<=.3,('Semantic stop too far from city',row)
-    assert all(oldr[i]==newr[i] for i in FIRST_BATCH), 'Accepted first-batch paths changed'
+    assert all(oldr[i]==newr[i] for i in FIRST_BATCH | SECOND_BATCH), 'Accepted earlier-batch paths changed'
     verification = verify(oldr,newr,olde,newe,selected)
     verification['first_batch_routes_byte_equal'] = True
+    verification['second_batch_routes_byte_equal'] = True
     report = {'reference':args.reference,'verification':verification,
               'curve_tolerances':tolerances,'stops':stops,'routes':{}}
     for i in sorted(selected):
