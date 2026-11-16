@@ -207,6 +207,14 @@ svg.m-battle .rt g.foc .ah{display:block}
 #g-bt .siege circle{stroke-width:2.2px;stroke-dasharray:5 3;opacity:.9}
 #g-bt .siege g path{stroke-width:1.8px;stroke-linecap:round}
 #g-bt .sg-l{font-size:11.5px;font-weight:700;text-anchor:middle;stroke:#efe4c8;stroke-width:3px;paint-order:stroke}
+#g-bt .act-note text{stroke:#efe4c8;stroke-width:3px;paint-order:stroke}
+#g-bt .flood>path:first-child{fill:#42869a;fill-opacity:.43;stroke:#2f6075;stroke-width:1.1}
+#g-bt .ripples{fill:none;stroke:#2f6075;stroke-width:1.3;opacity:.85}
+#g-bt .supply-cut path{fill:none;stroke-width:2.8;stroke-linecap:round;paint-order:stroke;filter:drop-shadow(0 1px 1px #efe4c8)}
+#g-bt .cut-tail{fill:none;stroke-width:calc(2.5px*var(--s));stroke-dasharray:calc(3px*var(--s)) calc(5px*var(--s));opacity:.3;pointer-events:none}
+#g-bt .boat{stroke-width:.8;stroke-linejoin:round}
+#g-bt .forts path{stroke-width:1;fill-opacity:.85;paint-order:stroke;filter:drop-shadow(0 1px 1px #efe4c8)}
+#g-bt .battle-pre .sg-l{font-size:11px}
 #g-bt .zl{font-family:var(--display);font-size:20px;text-anchor:middle;stroke-width:4px;letter-spacing:.1em}
 #g-gain path{stroke-width:calc(2px*var(--s));stroke-linejoin:round;pointer-events:none}
 svg.m-battle #g-gain{display:none}

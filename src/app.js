@@ -183,15 +183,16 @@ const SIDEN={s:'宋',l:'辽',j:'金',m:'蒙古',x:'夏',o:''};
 const DARK={s:'#7a1d10',l:'#1f4652',j:'#5a4406',m:'#1b3260',x:'#3a4f0e',o:'#4a2f66'};
 const STAR=(()=>{let p=[];for(let i=0;i<16;i++){const r=i%2?4.2:10,a=i*Math.PI/8-Math.PI/2;p.push((r*Math.cos(a)).toFixed(1)+','+(r*Math.sin(a)).toFixed(1))}return p.join(' ')})();
 let bt={si:0,steps:[],tok:0,timer:0,playing:false,anims:[],stack:{}};
-function routeFrac(g,f){if(!g._L)g._L=g._ln.getTotalLength();const L=g._L,d=`${L*f} ${L+10}`;g._f=f;g._ln.style.strokeDasharray=d;g._halo.style.strokeDasharray=d;
+function routeFrac(g,f){if(!g._L)g._L=g._ln.getTotalLength();const L=g._L,d=`${L*(g._cut?Math.min(f,g._cut.f):f)} ${L+10}`;g._f=f;g._ln.style.strokeDasharray=d;g._halo.style.strokeDasharray=d;
+  if(g._cut)g._cut.mask.style.strokeDasharray=`0 ${L*g._cut.f} ${L*Math.max(0,f-g._cut.f)} ${L+10}`;
   if(f<=0){g._ah.style.visibility='hidden';g._ln.style.visibility='hidden';g._halo.style.visibility='hidden'}
   else{g._ln.style.visibility=g._halo.style.visibility=g._ah.style.visibility='';const p=g._ln.getPointAtLength(L*f),q=g._ln.getPointAtLength(Math.max(0,L*f-3));
     g._ah.style.transform=`translate(${p.x}px,${p.y}px) rotate(${Math.atan2(p.y-q.y,p.x-q.x)*180/Math.PI}deg) scale(var(--s))`}
-  g._lb.style.opacity=g._cur&&f>=.45?1:0;
+  g._ah.style.opacity=g._cut&&f>g._cut.f?.3:'';g._lb.style.opacity=g._cur&&f>=.45?1:0;
   const tk=armyTok(g);if(tk){if(f<=0)tk.style.display='none';else{const p=g._ln.getPointAtLength(g._L*f);tk.style.display='';tk.style.opacity=g._cur?1:.62;tk._tf=`translate(${p.x}px,${p.y}px) scale(calc(var(--s) * ${tk._z}))`;tk.style.transform=tk._tf+` translate(${tk._dx||0}px,${tk._dy||0}px)`}}}
 // 部队标记：路线 r[7]=[部队名,人数,口径,兵种]，跟着行军箭头走；大小随兵力略增
 const fmtN=(n,q)=>!n?'':(q==='号'?'号':q==='约'?'约':'')+(n>=10000?(Math.round(n/1000)/10)+'万':n+'人');
-function armyTok(g){if(g._tk!==undefined)return g._tk;const a=C.rt[g._i][7];if(!a){g._tk=null;return null}
+function armyTok(g){if(g._tk!==undefined)return g._tk;const a=g._army||C.rt[g._i][7];if(!a){g._tk=null;return null}
   // 旗签：左为兵种小印（朱/青等色底、纸色字），右为签条（部队名＋兵力），尾端燕尾
   const col=RCOL[g._side],t=el('g',{class:'tok'},g),num=a[1]?fmtN(a[1],a[2]):'';
   const wn=(s,f)=>[...s].reduce((w,ch)=>w+(/[\x00-\x7f]/.test(ch)?f*.6:f*1.06),0),w=wn(a[0],10.5)+(num?wn(num,10)+6:0)+12,x0=23,x1=x0+w;
@@ -205,8 +206,12 @@ function routeReset(g){if(g._tk)g._tk.style.display='none';g._ln.style.strokeDas
 function tween(dur,delay,fn,tok){if(REDUCED||dur<=0){fn(1);return}let t0=null;const step=ts=>{if(tok!==bt.tok)return;if(t0===null)t0=ts+delay;const u=Math.max(0,Math.min(1,(ts-t0)/dur));fn(u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2);if(u<1)requestAnimationFrame(step)};requestAnimationFrame(step)}
 function pop(node,delay,animate){if(!animate||REDUCED||!node.animate)return;const a=node.animate([{opacity:0,transform:'scale(.2)'},{opacity:1,transform:'scale(1.25)',offset:.7},{opacity:1,transform:'scale(1)'}],{duration:480,delay,fill:'backwards',easing:'ease-out'});bt.anims.push(a)}
 function fade(node,delay,animate,to){if(!animate||REDUCED||!node.animate)return;bt.anims.push(node.animate([{opacity:0},{opacity:to??1}],{duration:600,delay,fill:'backwards'}))}
+function actNote(g,x,y,text,side,y0=-20){if(!text)return;const lead=el('path',{class:'callout-lead'},g),n=el('g',{class:'act-note'},g);n._at=[x,y];n._lead=lead;el('text',{class:'sg-l',y:y0,fill:DARK[side]},n).textContent=text;return n}
+function battlePre(e){if(!e[6]?.pre||bt.preNode)return;const root=el('g',{class:'battle-pre'},$('g-bt'));bt.preNode=root;
+  for(const [x,y,side,text] of e[6].pre){const g=pt(root,x,y),col=RCOL[side];el('path',{d:'M0,4V-13L10,-10L0,-7',fill:col,stroke:col,'stroke-width':1.5},g);actNote(g,x,y,text,side);fade(g,0,true)}scheduleCull()}
+function fadePre(){const n=bt.preNode;if(!n)return;bt.preNode=null;if(REDUCED)return n.remove();const a=n.animate([{opacity:1},{opacity:0}],{duration:350,fill:'forwards'});bt.anims.push(a);a.onfinish=()=>n.remove()}
 function doAct(a,animate,t1,cur){ // 返回该动作结束的时间（毫秒），t1 为行军结束时刻
-  const k=a[0],gb=$('g-bt'),sc=base*view.k;
+  const k=a[0],gb=$('g-bt'),sc=base*view.k;if('swknfv'.includes(k))animate=animate&&cur;
   if(k==='m'){const g=ROUTE[a[1]];g._cur=cur;if(!g._L)g._L=g._ln.getTotalLength();const dur=animate?Math.max(650,Math.min(2600,g._L*(a[3]-a[2])*sc*6)):0;
     if(animate){const tok=bt.tok;routeFrac(g,a[2]);tween(dur,0,u=>routeFrac(g,a[2]+(a[3]-a[2])*u),tok)}else routeFrac(g,a[3]);return dur}
   if(k==='a'||k==='r'){const col=RCOL[a[2]],p=el('path',{class:'adhoc'+(k==='r'?' ret':''),d:a[1],stroke:col},gb);
@@ -232,13 +237,30 @@ function doAct(a,animate,t1,cur){ // 返回该动作结束的时间（毫秒）�
   if(k==='s'){const g=pt(gb,a[1],a[2]),col=RCOL[a[3]],r=a[4]||5,inner=el('g',{class:'siege'},g),R=r*sc/(Math.pow(view.k,.2)||1);
     const ring=el('circle',{r:R,fill:'none',stroke:col},inner),tick=el('g',{stroke:col},inner);
     for(let i=0;i<8;i++){const q=i*Math.PI/4,c=Math.cos(q),s=Math.sin(q);el('path',{d:`M${(c*(R+7)).toFixed(1)},${(s*(R+7)).toFixed(1)}L${(c*(R+1.5)).toFixed(1)},${(s*(R+1.5)).toFixed(1)}`},tick)}
-    if(a[5]&&cur){const t=el('text',{class:'sg-l',y:-R-11,fill:DARK[a[3]]},inner);t.textContent=a[5]}
+    if(a[5]&&cur)actNote(g,a[1],a[2],a[5],a[3],-R-11);
     if(animate&&!REDUCED&&inner.animate){bt.anims.push(inner.animate([{opacity:0,transform:'scale(1.9)'},{opacity:1,transform:'scale(1)'}],{duration:1200,delay:t1,easing:'cubic-bezier(.3,.6,.3,1)',fill:'both'}));
       bt.anims.push(ring.animate([{strokeDashoffset:0},{strokeDashoffset:-24}],{duration:1600,delay:t1+1200,iterations:Infinity}))}
     return t1+1300}
+  if(k==='w'){const g=pt(gb,a[1],a[2]),R=a[4]*sc/Math.pow(view.k,.2),p=[];
+    for(let i=0;i<24;i++){const q=i*Math.PI/12,r=R*(1+.16*Math.sin(i*2.3)+.12*Math.cos(i*1.7));p.push(`${i?'L':'M'}${(Math.cos(q)*r).toFixed(1)},${(Math.sin(q)*r*.7).toFixed(1)}`)}
+    const water=el('g',{class:'flood'},g);el('path',{d:p.join('')+'Z'},water);el('path',{class:'ripples',d:`M${-R*.6},-3q${R*.15},-6 ${R*.3},0t${R*.3},0t${R*.3},0M${-R*.4},6q${R*.15},-6 ${R*.3},0t${R*.3},0`},water);
+    if(cur)actNote(g,a[1],a[2],a[5],a[3],-R*.7-12);
+    if(animate&&!REDUCED)bt.anims.push(water.animate([{opacity:0,transform:'scale(.12)'},{opacity:1,transform:'scale(1)'}],{duration:1200,delay:t1,fill:'backwards',easing:'ease-out'}));return t1+1200}
+  if(k==='k'){const r=ROUTE[a[1]],L=r._L||(r._L=r._ln.getTotalLength()),p=r._ln.getPointAtLength(L*a[2]),g=pt(gb,p.x,p.y),mark=el('g',{class:'supply-cut',stroke:RCOL[a[3]]},g);
+    el('path',{d:'M-9,3L-3,-6M-3,6L3,-3M5,-3L11,3M11,-3L5,3'},mark);if(cur)actNote(g,p.x,p.y,a[4],a[3]);pop(mark,t1,animate);
+    if(cur){const id=`cut-${bt.tok}-${a[1]}`,defs=el('defs',{},gb),mask=el('mask',{id,maskUnits:'userSpaceOnUse',x:-100,y:-100,width:W+200,height:H+200},defs),mp=el('path',{d:C.rt[a[1]][4],fill:'none',stroke:'white','stroke-width':20},mask);
+      el('path',{class:'cut-tail',d:C.rt[a[1]][4],stroke:RCOL[r._side],mask:`url(#${id})`},gb);r._cut={f:a[2],mask:mp};routeFrac(r,r._f||0)}return t1+500}
+  if(k==='n'){const g=pt(gb,a[1],a[2]),navy=el('g',{class:'naval'},g);
+    el('path',{class:'ripples',d:'M-25,9q6,-5 12,0t12,0t12,0t12,0M-18,16q6,-5 12,0t12,0t12,0'},navy);
+    for(let i=0;i<3;i++){const boat=el('g',{transform:`translate(${(i-1)*15},${i===1?-7:2})`},navy);el('path',{class:'boat',d:'M-9,0L-5,5H5L9,0ZM0,0V-11L6,-3H0',fill:RCOL[a[3]],stroke:DARK[a[3]]},boat);
+      if(animate&&!REDUCED)bt.anims.push(boat.animate([{opacity:0,transform:`translate(${(i-1)*27}px,${i===1?-16:7}px)`},{opacity:1,transform:`translate(${(i-1)*15}px,${i===1?-7:2}px)`}],{duration:950,delay:t1+i*100,fill:'backwards',easing:'ease-out'}))}
+    if(cur)actNote(g,a[1],a[2],a[4],a[3],-30);return t1+1200}
+  if(k==='f'){a[2].forEach(([x,y],i)=>{const g=pt(gb,x,y),fort=el('g',{class:'forts',fill:RCOL[a[1]],stroke:DARK[a[1]]},g);el('path',{d:'M-8,5V-6H-5V-2H-2V-6H2V-2H5V-6H8V5ZM-2,5V0H2V5'},fort);if(cur&&i===a[2].length-1)actNote(g,x,y,a[3],a[1]);pop(fort,t1+i*150,animate)});return t1+(a[2].length-1)*150+480}
+  if(k==='v'){const r=ROUTE[a[1]],a0=C.rt[a[1]][7];if(!a0)return 0;r._army=[a0[0],a[2],a[3],a0[3]];if(r._tk)r._tk.remove();r._tk=undefined;routeFrac(r,r._f||0);const p=r._ln.getPointAtLength((r._L||0)*(r._f||0)),g=pt(gb,p.x,p.y,'strength');
+    if(cur){actNote(g,p.x,p.y,a[4],r._side);if(animate&&!REDUCED)bt.anims.push(r._tk.animate([{filter:'brightness(1.6)'},{filter:'brightness(1)'}],{duration:1000,delay:t1,fill:'backwards'}))}return t1+1000}
   return 0}
-function clearStage(){bt.tok++;bt.pre=null;clearTimeout(bt.timer);bt.anims.forEach(a=>a.cancel());bt.anims=[];bt.stack={};$('g-bt').textContent='';$('g-zone').textContent=''}
-function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));clearStage();narrStop();bt.si=k;const tok=bt.tok,e=C.ev[battle];
+function clearStage(){bt.tok++;bt.pre=null;bt.preNode=null;clearTimeout(bt.timer);bt.anims.forEach(a=>a.cancel());bt.anims=[];bt.stack={};for(const g of ROUTE){if(g._cut){g._cut=null;routeFrac(g,g._f||0)}if(g._army){g._army=null;if(g._tk)g._tk.remove();g._tk=undefined}}$('g-bt').textContent='';$('g-zone').textContent=''}
+function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));const pre=C.ev[battle][6].pre?bt.pre:null,preNode=k===0?bt.preNode:null;if(preNode)preNode.remove();clearStage();if(preNode){$('g-bt').append(preNode);bt.preNode=preNode}narrStop();bt.si=k;const tok=bt.tok,e=C.ev[battle];
   let b=null;for(let s=Math.max(0,k-1);s<=k;s++){const q=bt.steps[s][2];if(q)b=b?[Math.min(b[0],q[0]),Math.min(b[1],q[1]),Math.max(b[2],q[2]),Math.max(b[3],q[3])]:q.slice()}
   for(const g of ROUTE)if(g._ev===e[1]){g._ln.removeAttribute('marker-end');g._cur=false;routeFrac(g,0)}
   bt.ends=new Map();for(let s=0;s<=k;s++)for(const a of bt.steps[s][1])if(a[0]==='m')bt.ends.set(ROUTE[a[1]],a[3]);bt.layout=null;
@@ -250,14 +272,14 @@ function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));clearSt
     capSet(`<b class="cy">${e[0]}</b>${e[1]} · 第 ${k+1}/${bt.steps.length} 步`);$('nr-n').textContent=`${k+1} / ${bt.steps.length}`;
     $('nr-prev').disabled=k===0;$('nr-next').disabled=k===bt.steps.length-1}
   document.querySelectorAll('#battlebox .steps li').forEach((li,i)=>{li.classList.toggle('cur',i===k);li.classList.toggle('done',i<k);if(i===k)li.scrollIntoView({block:'nearest'})});
-  const go=()=>{const end=draw(k,animate);scheduleCull();if(end)setTimeout(()=>{if(tok===bt.tok)scheduleCull()},end+80);
+  const go=()=>{fadePre();const end=draw(k,animate);scheduleCull();if(end)setTimeout(()=>{if(tok===bt.tok)scheduleCull()},end+80);
     if(film.on){if(film.playing)filmSay(end);return}
     if(!bt.playing)return;const n=stepNarr(k),say=narrate(n.t,n.au,2400,n.tm);
     Promise.all([say.done,wait(end)]).then(()=>{if(tok!==bt.tok||!bt.playing)return;
       if(k<bt.steps.length-1)return showStep(k+1,true);
       bt.timer=setTimeout(()=>setPlay(false),400)})};
-  if(!animate&&!bt.pre){if(b){view=boxView(b,55);commit()}return go()}
-  let p=bt.pre||Promise.resolve();bt.pre=null;
+  if(!animate&&!pre){if(b){view=boxView(b,55);commit()}return go()}
+  let p=pre||Promise.resolve();
   if(b)p=p.then(()=>tok===bt.tok&&flyTo(boxView(b,55)));
   p.then(()=>{if(tok===bt.tok)go()})}
 function setPlay(p){bt.playing=p;if(!p)clearTimeout(bt.timer);uiSync();if(film.on)return;if(!p)narrStop();$('nr-play').textContent=p?'❚❚':'▶';$('nr-play').setAttribute('aria-label',p?'暂停':'播放')}
@@ -270,7 +292,7 @@ function enterBattle(i,step0,inFilm){const e=C.ev[i],b0=e[6];if(mode!=='battle')
   EVM.forEach((m,j)=>m.classList.toggle('foc',j===i));CITY.forEach(g=>g.classList.remove('rel'));e[8].forEach(j=>CITY[j].classList.add('rel'));
   setMode('battle');setYear(e[0]);
   // 先飞到整场战役的全貌、停一下，再进入第一步（showStep 接着 bt.pre）
-  bt.pre=flyTo(boxView(e[7],40)).then(()=>wait(REDUCED?0:700));
+  const entryTok=bt.tok+1;bt.pre=flyTo(boxView(e[7],40)).then(()=>{if(entryTok===bt.tok&&!(inFilm&&bt.preNode))battlePre(e);return wait(REDUCED?0:700)});
   const n=BATTLES.indexOf(i);bt.steps=b0.steps;
   $('battlebox').innerHTML=`<div class="hd"><b>${e[0]}</b><h2>${e[1]}</h2></div><p>${e[5]}</p>
     <div class="sec">战事经过</div><ol class="steps">${b0.steps.map(s=>`<li><span>${s[0]}</span></li>`).join('')}</ol>
@@ -326,7 +348,7 @@ function unlockAudio(){if(unlocked)return;unlocked=true;AU.src=SILENT;AU.play().
 function filmToggle(){unlockAudio();if(film.playing)return filmPlay(false);if(!FILM.length)return;
   let i=film.i;if(!film.on||film.ended){i=yearPicked?FILM.findIndex(f=>f.y>=year):0;if(i<0)i=0}
   filmOpen(i,true)}
-function filmEnd(){if(!film.on)return;filmPlay(false);film.tok++;film.on=false;filmMark(-1);if(mode==='battle')leaveBattle(false);showGains(-1);panelSync();card();setHash('y='+year)}
+function filmEnd(){if(!film.on)return;filmPlay(false);film.tok++;film.on=false;filmMark(-1);if(mode==='battle')leaveBattle(false);else clearStage();showGains(-1);panelSync();card();setHash('y='+year)}
 // 在地图与大事年表里标出当前大事（年表滚动到它）
 function filmMark(e){if(film.mk>=0){EVM[film.mk].classList.remove('fm');EVB[film.mk].classList.remove('fm')}film.mk=e;if(e<0)return;
   EVM[e].classList.add('fm');EVB[e].classList.add('fm');if(mode!=='battle')evScroll(EVB[e],'auto')}
@@ -344,7 +366,7 @@ function filmSay(extra){const tok=film.tok,f=FILM[film.i],say=narrate(f.t,f.au,f
 // 显示第 i 段（从 0 起）；暂停中只摆好画面，不读
 function filmShow(i){if(!film.on||!FILM.length)return;i=Math.max(0,Math.min(i,FILM.length-1));film.i=i;film.ended=false;
   const f=FILM[i],tok=++film.tok,isB=f.s!==undefined;clearTimeout(film.timer);narrStop();if(sel){sel=null;markSel()}
-  if(mode==='battle'&&(!isB||battle!==f.e))leaveBattle(false);
+  if(mode==='battle'&&(!isB||battle!==f.e))leaveBattle(false);else if(!isB)clearStage();
   if(isB){filmMark(f.e);const n=C.ev[f.e][6].steps.length,k=f.s==='end'?n-1:f.s-1;filmCap();
     if(battle!==f.e)return enterBattle(f.e,k,true);
     if(f.s==='end'&&bt.si===k){if(film.playing)filmSay(0);return}
@@ -357,7 +379,7 @@ function filmShow(i){if(!film.on||!FILM.length)return;i=Math.max(0,Math.min(i,FI
       v=boxView([Math.min(...P.map(p=>p[0])),Math.min(...P.map(p=>p[1])),Math.max(...P.map(p=>p[0])),Math.max(...P.map(p=>p[1]))],300)}
     filmMark(f.e)}
   filmCap();
-  flyTo(v).then(()=>{if(tok===film.tok&&film.playing)filmSay(0)})}
+  flyTo(v).then(()=>{if(tok!==film.tok)return;if(f.e>=0)battlePre(C.ev[f.e]);if(film.playing)filmSay(0)})}
 
 // ---------- 图层 ----------
 $('ptoggle').addEventListener('click',()=>{const off=document.body.classList.toggle('nopanel');$('ptoggle').textContent=off?'‹ 展开右栏':'收起 ›';$('ptoggle').setAttribute('aria-expanded',!off)});
@@ -524,11 +546,11 @@ const CULL=[...CITY,...GAR].sort((a,b)=>a._c[4]-b._c[4]);
 // 路线上的采样点（svg 坐标与沿线比例），驻军让位用
 function routePts(g){if(!g._pts){const L=g._L||(g._L=g._ln.getTotalLength());g._pts=[];for(let i=0;i<=40;i++){const p=g._ln.getPointAtLength(L*i/40);g._pts.push([p.x,p.y,i/40])}}return g._pts}
 // 战役浮签在镜头落定后按本步终点排一次；行军帧只沿用偏移，不参与选位。
-function battleLayout(fixed,box,sc,vx,vy,ls){const notes=[...document.querySelectorAll('#g-bt .cl-note,#g-bt .take')],key=[bt.tok,com.cx,com.cy,com.k,cw,ch,btX,notes.length].join('/');
+function battleLayout(fixed,box,sc,vx,vy,ls){const notes=[...document.querySelectorAll('#g-bt .cl-note,#g-bt .take,#g-bt .act-note')],key=[bt.tok,com.cx,com.cy,com.k,cw,ch,btX,notes.length].join('/');
   if(bt.layout?.key===key){fixed.push(...bt.layout.boxes);return}
   const occupied=fixed.slice(),placed=[],points=[],P=(x,y)=>[(x-vx)*sc,(y-vy)*sc];
   for(const g of CITY)if(g._v&&getComputedStyle(g).display!=='none')for(const n of g.children){if(n.classList.contains('fl'))continue;const b=box(n);if(b[2]-b[0]>4&&b[3]-b[1]>2)occupied.push(b)}
-  for(let s=0;s<=bt.si;s++)for(const a of bt.steps[s][1])if(a[0]==='c'){const [x,y]=P(a[1],a[2]);occupied.push([x-10*ls,y-10*ls,x+10*ls,y+10*ls])}
+  if(mode==='battle')for(let s=0;s<=bt.si;s++)for(const a of bt.steps[s][1])if(a[0]==='c'){const [x,y]=P(a[1],a[2]);occupied.push([x-10*ls,y-10*ls,x+10*ls,y+10*ls])}
   for(const [g,f] of bt.ends||[])if(f>0)for(const q of routePts(g))if(q[2]<=f+.02)points.push(P(q[0],q[1]));
   for(const p of document.querySelectorAll('#g-bt .adhoc')){const L=p.getTotalLength();for(let i=0;i<=40;i++){const q=p.getPointAtLength(L*i/40);points.push(P(q.x,q.y))}}
   const place=(n,at,b,z)=>{const [x,y]=P(...at),u=ls*z,cx=b.x+b.width/2,cy=b.y+b.height/2,candidates=[[0,0]];
@@ -541,7 +563,7 @@ function battleLayout(fixed,box,sc,vx,vy,ls){const notes=[...document.querySelec
     n._dx=best.dx;n._dy=best.dy;occupied.push(best.r);placed.push(best.r);
     if(n.classList.contains('tok')){if(n._tf)n.style.transform=n._tf+` translate(${n._dx}px,${n._dy}px)`}
     else{n.setAttribute('transform',`translate(${n._dx},${n._dy})`);const x0=b.x+n._dx,y0=b.y+n._dy,tx=Math.max(x0,Math.min(x0+b.width,0)),ty=Math.max(y0,Math.min(y0+b.height,0));n._lead.setAttribute('d',Math.hypot(tx,ty)>12?`M0,0L${tx},${ty}`:'')}};
-  const troops=[...(bt.ends||[])].filter(([g,f])=>f>0&&armyTok(g));troops.sort((a,b)=>b[0]._tk._box.width-a[0]._tk._box.width);
+  const troops=[...(mode==='battle'?bt.ends||[]:[])].filter(([g,f])=>f>0&&armyTok(g));troops.sort((a,b)=>b[0]._tk._box.width-a[0]._tk._box.width);
   for(const [g,f] of troops){const p=g._ln.getPointAtLength((g._L||g._ln.getTotalLength())*f);place(g._tk,[p.x,p.y],g._tk._box,g._tk._z)}
   const flags=new Map();for(const n of notes)if(n.classList.contains('take')){const at=n._at.join(',');if(!flags.has(at))flags.set(at,[]);flags.get(at).push(n)}else place(n,n._at,n.getBBox(),1);
   // 同城先后易手仍由最后一面旗盖住旧旗，避免避让时把旧归属摊开。
@@ -552,7 +574,7 @@ function cull(){const sc=base*com.k,vx=com.cx-cw/(2*sc),vy=com.cy-ch/(2*sc),ls=M
   const r0=wrap.getBoundingClientRect();
   const box=n=>{const b=n.getBoundingClientRect();return [b.left-r0.left-2,b.top-r0.top-1,b.right-r0.left+2,b.bottom-r0.top+1]};
   const hits=(x0,y0,w,h,arr)=>{for(const a of arr)if(x0<a[2]&&x0+w>a[0]&&y0<a[3]&&y0+h>a[1])return true;return false};
-  for(const n of document.querySelectorAll('#g-bt text,#g-ev .evm.cur text,#g-rt .rl text')){if(n.closest('.cl-note,.take'))continue;if(n.getBoundingClientRect().width&&getComputedStyle(n).opacity!=='0')fixed.push(box(n))}
+  for(const n of document.querySelectorAll('#g-bt text,#g-ev .evm.cur text,#g-rt .rl text')){if(n.closest('.cl-note,.take,.act-note'))continue;if(n.getBoundingClientRect().width&&getComputedStyle(n).opacity!=='0')fixed.push(box(n))}
   // 压在地图上的界面（题签、方位小图、工具条、控制条、比例尺）：注记不钻到它们底下
   for(const n of document.querySelectorAll('#nr-cap:not([hidden]),#loc.show,.tools,#narr:not([hidden]),#ptoggle,#scale'))if(n.getBoundingClientRect().width)fixed.push(box(n))
   // 战役中的行军线（已画出的部分）与临时箭头：驻军压上就让位
@@ -587,7 +609,7 @@ function cull(){const sc=base*com.k,vx=com.cx-cw/(2*sc),vy=com.cy-ch/(2*sc),ls=M
     if(got)cityAnchor(g,got[0]);
     if(g._h!==hit){g._h=hit;g.classList.toggle('hid',hit)}
     if(got){acc.push([got[1],got[2],got[1]+w,got[2]+h]);labs.push(acc.at(-1))}}
-  if(bat)battleLayout(fixed,box,sc,vx,vy,ls);
+  if(bat||bt.preNode)battleLayout(fixed,box,sc,vx,vy,ls);
   // 3) 山川、部族、路名、河名：最后放，撞上任何东西就藏
   for(const g of TXT){if(!(g._rv?g._rv._v:g._v))continue;const [tx,ty,n,fs,sp]=g._tl,x=(tx-vx)*sc,y=(ty-vy)*sc;
     if(x<-120||y<-30||x>cw+120||y>ch+30)continue;const w=n*fs*(1+sp)*ls,h=fs*ls*1.2,x0=x-w/2,y0=y-h/2;

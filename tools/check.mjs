@@ -6,7 +6,8 @@ import {loadData,narrations} from './data.mjs';
 
 const root=join(dirname(fileURLToPath(import.meta.url)),'..');
 const {HIST,C}=loadData(root);
-const Y0=+readFileSync(join(root,'src/app.js'),'utf8').match(/const Y0=(\d+)/)[1], Y1=1279;
+const app=readFileSync(join(root,'src/app.js'),'utf8'),sides=new Set([...app.match(/const RCOL=\{([^}]+)/)[1].matchAll(/(\w+):/g)].map(m=>m[1]));
+const Y0=+app.match(/const Y0=(\d+)/)[1], Y1=1279;
 const err=[],warn=[];const bad=m=>err.push(m);
 const pick=(o,y)=>{let b=null;for(const k in o)if(+k<=y&&(b===null||+k>b))b=+k;return b===null?null:o[b]};
 const used=new Set();
@@ -43,8 +44,17 @@ prev=0;
 C.ev.forEach((e,i)=>{const w=`大事 ${e[0]} ${e[1]}`;if(e[0]<prev)bad(`${w}: 未按年份排序`);prev=e[0];if(e[0]<Y0||e[0]>Y1)bad(`${w}: 超出范围`);
   if(!e[6])return;
   (e[8]||[]).forEach(j=>{if(!C.city[j])bad(`${w}: 相关城邑 #${j} 不存在`)});
-  e[6].steps.forEach((st,k)=>st[1].forEach(a=>{
-    if(a[0]==='m'){const r=C.rt[a[1]];if(!r)bad(`${w} 第${k+1}步: 路线 #${a[1]} 不存在`);else if(r[6]!==e[1])bad(`${w} 第${k+1}步: 路线 #${a[1]} 属于「${r[6]}」`)}
+  const xy=(x,y)=>Number.isFinite(x)&&Number.isFinite(y),side=s=>sides.has(s),label=t=>t===undefined||typeof t==='string';
+  if(e[6].pre!==undefined&&(!Array.isArray(e[6].pre)||!e[6].pre.length||e[6].pre.some(p=>!Array.isArray(p)||p.length!==4||!xy(p[0],p[1])||!side(p[2])||typeof p[3]!=='string'||!p[3].trim())))bad(`${w}: pre 须为非空 [x,y,方,标注] 数组`);
+  e[6].steps.forEach((st,k)=>st[1].forEach(a=>{const aw=`${w} 第${k+1}步 ${a[0]}`;
+    if(!['m','c','t','r','a','z','s','w','k','n','f','v'].includes(a[0]))bad(`${aw}: 未知动作`);
+    if(['m','k','v'].includes(a[0])){const r=Number.isInteger(a[1])&&C.rt[a[1]];if(!r)bad(`${aw}: 路线 #${a[1]} 不存在`);else{if(r[6]!==e[1])bad(`${aw}: 路线 #${a[1]} 属于「${r[6]}」`);if(a[0]==='v'&&!r[7])bad(`${aw}: 路线没有部队标记`)}}
+    if(['s','w','n'].includes(a[0])&&(!xy(a[1],a[2])||!side(a[3])))bad(`${aw}: 坐标无效或方不在 RCOL 中`);
+    if(['s','w'].includes(a[0])&&(!(a[4]>0)||!Number.isFinite(a[4])||!label(a[5])||a.length<5||a.length>6))bad(`${aw}: 须为 [动作,x,y,方,正半径,标注?]`);
+    if(a[0]==='n'&&(!label(a[4])||a.length<4||a.length>5))bad(`${aw}: 须为 [n,x,y,方,标注?]`);
+    if(a[0]==='k'&&(!Number.isFinite(a[2])||a[2]<0||a[2]>1||!side(a[3])||!label(a[4])||a.length<4||a.length>5))bad(`${aw}: 比例须为 0—1，方须在 RCOL 中`);
+    if(a[0]==='f'&&(!side(a[1])||!Array.isArray(a[2])||!a[2].length||a[2].some(p=>!Array.isArray(p)||p.length!==2||!xy(...p))||!label(a[3])||a.length<3||a.length>4))bad(`${aw}: 须为 [f,方,[[x,y],…],标注?]`);
+    if(a[0]==='v'&&(!Number.isInteger(a[2])||a[2]<0||!['约','号',''].includes(a[3])||!label(a[4])||a.length<4||a.length>5))bad(`${aw}: 人数须为非负整数，口径须为 约/号/空`);
     if(a[0]==='z')shape(a[1],`${w} 第${k+1}步`)}));
   if(e[6].s.length!==e[6].loss.length)bad(`${w}: 参战方与伤亡条数不一致`)});
 const ids=new Set();let last=0;
