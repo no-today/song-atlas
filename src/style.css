@@ -11,7 +11,7 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
-body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.65;display:grid;grid-template-columns:minmax(0,1fr) 384px;grid-template-rows:minmax(0,1fr) auto;overflow:hidden}
+body{container:atlas / inline-size;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.65;display:grid;grid-template-columns:minmax(0,1fr) 384px;grid-template-rows:minmax(0,1fr) auto;overflow:hidden}
 button{font:inherit;color:inherit;cursor:pointer}
 :focus-visible{outline:2px solid var(--cinnabar);outline-offset:2px}
 [hidden]{display:none!important}
@@ -42,6 +42,8 @@ body.nopanel #panel{display:none}
 #ptoggle{position:absolute;top:14px;right:14px;z-index:2;background:rgba(236,224,196,.94);border:1px solid var(--ink-soft);border-radius:2px;height:30px;padding:0 10px;font-size:12.5px;cursor:pointer}
 #ptoggle:hover{background:#f6edd6}
 #panel{grid-column:2;grid-row:1 / span 2;display:flex;flex-direction:column;min-height:0;background:linear-gradient(180deg,#efe4ca,#e6d7b4)}
+#panel-content{display:flex;flex-direction:column;flex:1;min-height:0}
+#drawer-handle,#drawer-title{display:none}
 .now{padding:var(--s4) var(--s4) var(--s3);border-bottom:3px double var(--line)}
 .now .yr{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap}
 .now .yr b{font-size:40px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
@@ -131,6 +133,27 @@ body.nopanel #panel{display:none}
 .tnote{font-size:11.5px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .tnote button{background:none;border:0;padding:0;color:var(--cinnabar);text-decoration:underline;text-underline-offset:3px}
 
+/* 开场与分章目录：沿用资料浮层的纸色双墨线 */
+#opening{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:rgba(239,228,200,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);cursor:default;opacity:0;transition:opacity .3s}
+#opening.open{opacity:1}#opening[inert]{pointer-events:none}
+.opening-card{width:min(440px,90vw);background:var(--paper);border:1px solid var(--ink);outline:1px solid var(--ink);outline-offset:-5px;padding:28px 32px;text-align:center}
+.opening-card h2{font:400 36px/1.4 var(--display);letter-spacing:.2em;margin:0 0 10px}
+.opening-card .subtitle{font-size:15px;color:#5d4c3a;margin:0 0 24px}
+.opening-acts{display:grid;gap:10px}
+.opening-acts button{width:100%;height:44px;background:none;border:1px solid var(--ink);border-radius:0;font-size:14px}
+.opening-acts #op-start{background:#b23a2a;color:var(--paper);border-color:#b23a2a}
+.opening-acts #op-explore{border:0;text-decoration:underline;text-underline-offset:4px}
+#op-duration{font-size:12px;color:#7a6a55;margin:20px 0 0}
+#chapters{position:fixed;inset:0;z-index:10;background:rgba(43,33,24,.5);display:flex;align-items:center;justify-content:center;cursor:default}
+.chapter-card{width:470px;max-width:92vw;max-height:90dvh;overflow:auto;background:var(--paper);border:1px solid var(--ink);outline:1px solid var(--ink);outline-offset:-5px;padding:24px 28px}
+.chapter-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.chapter-head h2{font:400 26px var(--display);margin:0;letter-spacing:.12em}
+#chapter-list{list-style:none;padding:0;margin:0}
+#chapter-list button{display:grid;grid-template-columns:24px 1fr 48px 16px;gap:8px;align-items:center;width:100%;min-height:44px;text-align:left;background:none;border:0;border-top:var(--rule);padding:8px 0}
+#chapter-list button:hover{color:var(--cinnabar)}
+.ch-num,.ch-seen{color:var(--cinnabar)}.ch-name{position:relative}.ch-duration{font-size:12px;text-align:right;color:var(--ink-soft);white-space:nowrap}
+.ch-progress{display:block;height:2px;background:rgba(185,165,124,.4);margin-top:4px}.ch-progress i{display:block;height:100%;background:var(--cinnabar)}
+@media (prefers-reduced-motion:reduce){#opening{transition:none}}
 #about{position:fixed;inset:0;background:rgba(43,33,24,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
 #about.open{display:flex}
 #about div{background:var(--paper);border:1px solid var(--ink);outline:1px solid var(--ink);outline-offset:-5px;max-width:640px;max-height:86%;overflow:auto;padding:24px 28px}
@@ -305,7 +328,22 @@ svg.m-battle .rt g.hastok .rl{display:none!important}
 #mapwrap.idle{cursor:none}
 /* 地图区窄时控制条与左下缩放、右下比例尺同一行会相叠：整体抬到缩放按钮之上 */
 #mapwrap{container-type:inline-size}
-@container (max-width:720px){#narr{bottom:54px}#nr-sub{bottom:94px;max-width:92%}#mapwrap.idle #nr-sub{bottom:54px}#nr-cap{top:146px;left:14px;transform:none;max-width:calc(100% - 28px)}}
+@container (max-width:720px){#narr{bottom:54px;max-width:calc(100% - 16px);gap:0;padding:0 3px}#narr button{padding:0 5px;min-width:24px}#narr .n{padding:0 3px;font-size:10px}#nr-sub{bottom:100px;max-width:92%}#mapwrap.idle #nr-sub{bottom:60px}#nr-cap{top:14px;left:14px;transform:none;max-width:calc(100% - 28px)}#loc{display:none}.opening-card{width:92vw;padding:28px 24px}.chapter-card{width:92vw;padding:22px}.tools{bottom:12px}#ptoggle{display:none}}
+@container atlas (max-width:720px){
+  #mapwrap{position:fixed;inset:0 0 88px;border:0}
+  #panel,body.nopanel #panel{position:fixed;inset:auto 0 0;z-index:6;height:88px;display:flex;border-top:1px solid var(--ink);box-shadow:0 -3px 16px rgba(43,33,24,.12);overflow:hidden}
+  #panel.drawer-open{height:72vh;padding-bottom:88px}
+  #drawer-handle{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:100%;height:18px;padding:0;background:none;border:0;touch-action:none}
+  #drawer-handle i{width:36px;height:4px;border-radius:2px;background:#7a6a55}
+  #panel .now{flex-shrink:0;padding:0 18px 8px;height:70px;border-bottom:var(--rule);touch-action:none}
+  #panel .now .yr{height:36px;align-items:baseline}#panel .now .yr b{font-size:32px}#panel .now .yr span{font-size:13px}
+  #drawer-title{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;line-height:24px;font-size:14px}
+  #panel .snap{display:none}#panel:not(.drawer-open) #panel-content{visibility:hidden;pointer-events:none}
+  #panel-content{overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+  #panel-content #evwrap,#panel-content #battlebox{overflow:visible;flex:none}#panel-content #evwrap h3{position:static}
+  #time{display:none;position:fixed;inset:auto 0 0;z-index:7;height:88px;padding:8px 18px}
+  #panel.drawer-open~#time{display:grid}#time .tnote>span{display:none}#time .tnote{justify-content:flex-end}
+}
 @media (max-width:860px){#nr-sub{max-width:92%;font-size:20px}#nr-sub.long{font-size:18px}#nr-cap{font-size:13px}}
 .terr path.f{transition:fill-opacity .4s}.terr path.e{transition:stroke-width .4s}.terr path.o{transition:stroke-width .35s,stroke-opacity .35s}
 .terr g.hl path.o{stroke-width:calc(2.6px*var(--s));stroke-opacity:1}
