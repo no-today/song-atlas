@@ -206,9 +206,9 @@ function routeReset(g){if(g._tk)g._tk.style.display='none';g._ln.style.strokeDas
 function tween(dur,delay,fn,tok){if(REDUCED||dur<=0){fn(1);return}let t0=null;const step=ts=>{if(tok!==bt.tok)return;if(t0===null)t0=ts+delay;const u=Math.max(0,Math.min(1,(ts-t0)/dur));fn(u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2);if(u<1)requestAnimationFrame(step)};requestAnimationFrame(step)}
 function pop(node,delay,animate){if(!animate||REDUCED||!node.animate)return;const a=node.animate([{opacity:0,transform:'scale(.2)'},{opacity:1,transform:'scale(1.25)',offset:.7},{opacity:1,transform:'scale(1)'}],{duration:480,delay,fill:'backwards',easing:'ease-out'});bt.anims.push(a)}
 function fade(node,delay,animate,to){if(!animate||REDUCED||!node.animate)return;bt.anims.push(node.animate([{opacity:0},{opacity:to??1}],{duration:600,delay,fill:'backwards'}))}
-function actNote(g,x,y,text,side,y0=-20){if(!text)return;const lead=el('path',{class:'callout-lead'},g),n=el('g',{class:'act-note'},g);n._at=[x,y];n._lead=lead;el('text',{class:'sg-l',y:y0,fill:DARK[side]},n).textContent=text;return n}
+function actNote(g,x,y,text,side,y0=-20){if(!text)return;const lead=el('path',{class:'callout-lead'},g),n=el('g',{class:'act-note'},g);n._at=[x,y];n._lead=lead;el('text',{class:'sg-l',y:y0,style:`fill:${DARK[side]}`},n).textContent=text;return n}
 function battlePre(e){if(!e[6]?.pre||bt.preNode)return;const root=el('g',{class:'battle-pre'},$('g-bt'));bt.preNode=root;
-  for(const [x,y,side,text] of e[6].pre){const g=pt(root,x,y),col=RCOL[side];el('path',{d:'M0,4V-13L10,-10L0,-7',fill:col,stroke:col,'stroke-width':1.5},g);actNote(g,x,y,text,side);fade(g,0,true)}scheduleCull()}
+  for(const [x,y,side,text] of e[6].pre){const g=pt(root,x,y),col=RCOL[side];el('path',{d:'M0,4V-13L10,-10L0,-7',fill:col,stroke:col,'stroke-width':1.5},g);actNote(g,x,y,text,side);if(!REDUCED)bt.anims.push(g.animate([{opacity:0},{opacity:1}],{duration:220,fill:'backwards'}))}scheduleCull()}
 function fadePre(){const n=bt.preNode;if(!n)return;bt.preNode=null;if(REDUCED)return n.remove();const a=n.animate([{opacity:1},{opacity:0}],{duration:350,fill:'forwards'});bt.anims.push(a);a.onfinish=()=>n.remove()}
 function doAct(a,animate,t1,cur){ // 返回该动作结束的时间（毫秒），t1 为行军结束时刻
   const k=a[0],gb=$('g-bt'),sc=base*view.k;if('swknfv'.includes(k))animate=animate&&cur;
@@ -292,7 +292,7 @@ function enterBattle(i,step0,inFilm){const e=C.ev[i],b0=e[6];if(mode!=='battle')
   EVM.forEach((m,j)=>m.classList.toggle('foc',j===i));CITY.forEach(g=>g.classList.remove('rel'));e[8].forEach(j=>CITY[j].classList.add('rel'));
   setMode('battle');setYear(e[0]);
   // 先飞到整场战役的全貌、停一下，再进入第一步（showStep 接着 bt.pre）
-  const entryTok=bt.tok+1;bt.pre=flyTo(boxView(e[7],40)).then(()=>{if(entryTok===bt.tok&&!(inFilm&&bt.preNode))battlePre(e);return wait(REDUCED?0:700)});
+  const entryTok=bt.tok+1;bt.pre=flyTo(boxView(e[7],40)).then(()=>{if(!step0&&entryTok===bt.tok&&!(inFilm&&bt.preNode))battlePre(e);return wait(REDUCED?0:700)});
   const n=BATTLES.indexOf(i);bt.steps=b0.steps;
   $('battlebox').innerHTML=`<div class="hd"><b>${e[0]}</b><h2>${e[1]}</h2></div><p>${e[5]}</p>
     <div class="sec">战事经过</div><ol class="steps">${b0.steps.map(s=>`<li><span>${s[0]}</span></li>`).join('')}</ol>

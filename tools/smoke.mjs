@@ -25,9 +25,12 @@ await send('Page.navigate',{url:pathToFileURL(join(root,'dist',file)).href});
 // 等页面脚本跑完（产物变大后固定等待会偶发抢跑）
 for(let i=0;i<75;i++){await sleep(200);const r=await send('Runtime.evaluate',{expression:"typeof year!=='undefined'&&typeof C!=='undefined'",returnByValue:true});if(r.result.result?.value)break}
 const res=await run(`(async()=>{const t=()=>new Promise(r=>setTimeout(r,0));
-  const out={init:[year,$('n-snap').textContent]};
+  const out={init:[year,$('n-snap').textContent]},seen=new Set(),nodes={s:'.siege',w:'.flood',k:'.supply-cut',n:'.naval',f:'.forts',v:'.strength'};out.actErrors=[];
   for(let y=Y0;y<=1279;y++)userYear(y);
-  for(const i of BATTLES){enterBattle(i);for(let k=0;k<bt.steps.length;k++)showStep(k,false);await t()}
+  for(const i of BATTLES){enterBattle(i);setPlay(false);for(let k=0;k<bt.steps.length;k++){showStep(k,false);for(const a of bt.steps[k][1])if(nodes[a[0]]){if(!$('g-bt').querySelector(nodes[a[0]]))out.actErrors.push(C.ev[i][1]+' 第'+(k+1)+'步未画出 '+a[0]);else seen.add(a[0]);
+        if(a[0]==='v'){const g=ROUTE[a[1]];if(g._army?.[1]!==a[2]||!g._tk?.textContent.includes(fmtN(a[2],a[3])))out.actErrors.push('兵力旗签未更新');if(k>0){showStep(k-1,false);if(g._army||!g._tk?.textContent.includes(fmtN(C.rt[a[1]][7][1],C.rt[a[1]][7][2])))out.actErrors.push('回退兵力未恢复');showStep(k,false)}}
+        if(a[0]==='k'){const g=ROUTE[a[1]];if(!g._cut||!$('g-bt').querySelector('.cut-tail'))out.actErrors.push('断粮路线未变淡');showStep(k>0?k-1:Math.min(k+1,bt.steps.length-1),false);if(g._cut)out.actErrors.push('换步后断粮路线未恢复');showStep(k,false)}}}await t()}
+  out.actions=[...seen].sort().join('');for(const k of Object.keys(nodes))if(!seen.has(k))out.actErrors.push('新动作 '+k+' 没有在战役里画出');
   leaveBattle(true);
   history.replaceState(null,'','#f=3');route();out.f3=film.on&&film.i===2&&!film.playing;
   // 电影式界面：题签有字；播放中静止后控制条隐去，暂停即常驻
@@ -45,7 +48,16 @@ const sync=await run(`(async()=>{const t=()=>new Promise(r=>setTimeout(r,0));let
   filmEnd();
   for(const i of BATTLES){enterBattle(i);setPlay(false);for(let k=0;k<bt.steps.length;k++){showStep(k,false);feed(stepNarr(k).t)}await t()}
   leaveBattle(true);return n})()`);
+// 布势走真实入场与全片 intro；等待节点出现，不改镜头、讲解或动画时钟。
+const pre=await run(`(async()=>{const until=async fn=>{const start=performance.now();while(performance.now()-start<10000){if(fn())return true;await wait(25)}return false},i=C.ev.findIndex(e=>e[1]==='五路伐夏');
+  filmEnd();if(mode==='battle')leaveBattle(false);enterBattle(i);setPlay(false);const manual=await until(()=>bt.preNode&&!flying&&[...bt.preNode.children].every(n=>+getComputedStyle(n).opacity>.97));
+  showStep(0,false);const faded=await until(()=>!$('g-bt').querySelector('.battle-pre'));leaveBattle(false);
+  filmOpen(FILM.findIndex(f=>f.e===i&&f.s===undefined));const intro=await until(()=>!!bt.preNode);await wait(800);const held=!!bt.preNode;
+  filmShow(film.i+1);const step=await until(()=>!flying&&!bt.preNode&&!$('g-bt').querySelector('.battle-pre'));filmEnd();return {manual,faded,intro,held,step,clean:!$('g-bt').childElementCount}})()`);
+if(!pre||Object.values(pre).some(v=>!v))errs.push('战前布势时机/清理失败：'+JSON.stringify(pre));
 console.log('初始',res?.init?.join(' · '),`| 态势 ${res?.snaps}，战役 ${res?.battles}，全片 ${res?.film} 段，画面同步 ${sync} 段`);
+if(res?.actErrors?.length)errs.push(...res.actErrors);
+console.log('新动作实际绘制',res?.actions||'缺失');
 if(res&&!res.f3)errs.push('#f=3 打开后应停在第 3 段、处于暂停');
 if(res&&!res.bx)errs.push('战役中应自动细览、开关只切本场，退出后恢复原细览状态');
 if(res&&!res.ui)errs.push('题签应有字；播放中静止后控制条应隐去、暂停时应常驻');
