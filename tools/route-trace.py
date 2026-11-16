@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""首批 15 条路线：缓存 DEM / 底图河道 → 平滑折线 → 语义停点与反向撤退。
+"""两批路线：缓存 DEM / 底图河道 → 平滑折线 → 语义停点与反向撤退。
 
 主检出 .cache/venv/bin/python tools/route-trace.py --write --report /tmp/routes.json
 可传单个路线下标及可选 JSON 途经点表；--write 同步保存显式途经点。
@@ -9,7 +9,11 @@
 
 陆路采用 8 邻域、0.05 页面单位网格，0.025 单位 DEM 检查边内坡度，
 代价同时惩罚陡坡、翻岭、相对高地。仅使用已有缓存，绝不下载 DEM。
-2 号归州至忠州、65 号全线裁取底图河道；局部变形接入固定城标和旧端点。
+2 号归州至忠州、65 号全线裁取底图河道；第二批的 4、21、85 接通当期河道。
+23 号港区未通过，保留 main；959 年古水道及各约略控制点见 docs/路线出处.md。
+首批几何算法保持原样；第二批去掉窗口折返，分段平滑并以共同切向接入城邑，
+每条预算 90 点，以同时容纳撤退线、满足单文件 1440 KB 上限。
+高丽和海面没有 GLO-90 缓存处只用已有 ETOPO 2022（60 角秒），不下载。
 输出先 DP，再 Chaikin 两遍（南汉南段、剑州—大获城四遍），再对曲线作细化以符合 120 点上限。
 每段锁住途经点，保留原路线端点。全部坡度按最终一位小数 SVG 约每 95m
 采样计算，不能用寻路中间结果冒充成品。报告同时列 main、dee716b 和成品。
@@ -36,7 +40,10 @@ from relief import Projection, RADIUS, mosaic_vrt, tile_name
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CACHE = Path('/Users/whoog/Notoday/song-atlas/.cache/dem')
-BATCH = {1, 2, 3, 26, 27, 28, 29, 30, 38, 39, 40, 41, 61, 64, 65}
+FIRST_BATCH = {1, 2, 3, 26, 27, 28, 29, 30, 38, 39, 40, 41, 61, 64, 65}
+SECOND_BATCH = {0, *range(4, 23), 24, 25, *range(31, 34), *range(79, 88)}
+# Route 23's coastal/port reconstruction did not pass; retain main unchanged.
+BATCH = FIRST_BATCH | SECOND_BATCH
 # Explicit editorial decisions: step numbers are 1-based; None means retained
 # nearest-point mapping because there is no independent plotted stop position.
 STEP_STOPS = {
@@ -48,22 +55,64 @@ STEP_STOPS = {
     39: {2:'下邽'}, 40: {2:'下邽'}, 41: {1:'和尚原'},
     61: {1:'兴元府', 2:'阳平关', 3:'剑门关', 4:'成都府'},
     64: {1:'兴元府', 2:'青居城', 3:'钓鱼城'}, 65: {4:'三槽山'},
+    0: {1:'荆门（约略）', 2:'江陵府', 3:'三江口', 4:'朗州'},
+    4: {1:'池州', 2:'采石', 3:'金陵'}, 5: {3:'常州'},
+    6: {1:'太原府', 3:'幽州'}, 7: {4:'高梁河'},
+    8: {3:'涿州'}, 9: {2:'蔚州'}, 10: {1:'云州'}, 11: {5:'陈家谷'},
+    12: {1:'定州（河北）', 2:'河间府', 3:'澶州'}, 13: {5:'澶州'},
+    14: {1:'兴化镇', 2:'新恩县（约略）', 3:None, 4:'龟州'},
+    15: {1:'金明寨', 2:'延州'}, 16: {3:'三川口'},
+    17: {2:None, 3:'好水川口'}, 18: {1:None, 3:'好水川口'},
+    19: {1:None, 4:'渭州'}, 20: {2:'定川寨'},
+    21: {2:'广州'}, 22: {4:'昆仑关', 5:'归仁铺'},
+    24: {2:'邕州'},
+    25: {4:'决里隘', 5:'富良江'},
+    31: {1:'巴金岭（约略）', 2:'湟州', 3:'宗哥', 4:'廓州'},
+    32: {2:'太原府', 5:'汴京'}, 33: {1:'幽州', 3:'汴京'},
+    79: {2:'太原府'}, 80: {4:'洛阳'}, 81: {2:'真定府'}, 82: {4:'汴京'},
+    83: {2:'巴公原'}, 84: {1:'隆德府', 2:'巴公原'},
+    85: {1:'寿州', 5:'楚州', 6:'迎銮镇'}, 86: {3:'滁州'},
+    87: {1:'宁州（约略）', 2:'莫州'},
 }
 # event, step, action index -> corresponding route; 'a' is the unchanged
 # embedded Xianrenguan attack, whose retreat must reverse that exact attack.
 RETREATS = {('五路伐夏',6,0):28, ('五路伐夏',6,1):29,
             ('富平之战',4,0):38, ('和尚原、仙人关之战',4,0):'a',
-            ('蒙古军入蜀',4,2):61, ('钓鱼城之战',6,0):64}
+            ('蒙古军入蜀',4,2):61, ('钓鱼城之战',6,0):64,
+            ('契丹灭后晋',5,0):82, ('高平之战',5,0):84,
+            ('周世宗北伐取三关',3,1):87, ('平北汉；高梁河之败',5,0):6,
+            ('雍熙北伐',4,1):8, ('雍熙北伐',6,3):10,
+            ('澶渊之盟',6,0):12, ('三川口之战',4,0):15,
+            ('好水川之战',4,0):18, ('定川寨之战',4,1):19,
+            ('平侬智高',3,0):21, ('宋越熙宁战争',3,1):24,
+            ('宋越熙宁战争',6,0):25, ('靖康之变',7,0):33}
 
 
 def stop_position(name):
     special = {'三泉':Projection().proj(106.15,32.92),
                '下邽':Projection().proj(109.50841,34.72558), '马迳':(1023.2,883.7),
-               '富平':(898.6,561.2), '钓鱼城':(832.7,699.7), '三槽山':(833.8,704)}
+               '富平':(898.6,561.2), '钓鱼城':(832.7,699.7), '三槽山':(833.8,704),
+               '荆门（约略）':Projection().proj(112.20,31.03),
+               '朗州':(968.8,722.2), '三江口':(1003.6,709.8),
+               '幽州':(1051.5,400.7), '高梁河':(1051.5,400.7),
+               '定州（河北）':(1024.7,443.6), '陈家谷':(966.9,424.7),
+               '兴化镇':(1227.5,368.8),
+               '新恩县（约略）':Projection().proj(126.53,38.50),
+               '三川口':(898.9,502.8), '好水川口':(821.,540.2),
+               '归仁铺':(894.6,903.1), '决里隘':(847.8,933.8),
+               '富良江':(828.9,956.2),
+               '巴金岭（约略）':Projection().proj(103.03,35.95),
+               '巴公原':(984.3,525.7), '寿州':(1084.8,609.),
+               '楚州':(1137.9,575.1), '迎銮镇':(1143.6,610.),
+               '清流关':(1119.7,610.9), '正阳渡口':(1078.8,612.6),
+               '宁州（约略）':Projection().proj(116.80,38.58),
+               '独流口（约略）':Projection().proj(116.92,38.99),
+               '井陉（约略）':Projection().proj(114.13,38.03),
+               '扬武谷（约略）':Projection().proj(112.54,39.02)}
     if name in special:
         return np.asarray(special[name],float)
     matches = [c for c in load('cities')+load('labels') if c[0]==name]
-    if len(matches)!=1:
+    if not matches or len({tuple(c[1:3]) for c in matches})!=1:
         raise ValueError(f'Stop must resolve uniquely: {name}')
     return np.asarray(matches[0][1:3],float)
 
@@ -104,8 +153,10 @@ def nearest(p, q):
 
 
 class DEM:
-    def __init__(self, cache, proj):
+    def __init__(self, cache, proj, allow_coarse=False):
         self.cache, self.proj = cache, proj
+        self.allow_coarse = allow_coarse
+        self.coarse_windows = 0
 
     def grid(self, lo, hi, step):
         lo = np.floor(np.asarray(lo)/step)*step
@@ -116,13 +167,24 @@ class DEM:
                  for y in range(math.floor(min(lat)) - 1, math.ceil(max(lat))+1)
                  for x in range(math.floor(min(lon)) - 1, math.ceil(max(lon))+1)]
         paths = [p for p in paths if p.exists()]
-        if not paths:
-            raise ValueError('No cached DEM coverage')
         out = np.full((shape[1], shape[0]), np.nan, dtype='float32')
-        with MemoryFile(mosaic_vrt(paths)) as mem, mem.open() as source:
-            reproject(rasterio.band(source, 1), out, src_nodata=-32767, dst_nodata=np.nan,
-                      dst_transform=self.proj.affine(lo[0]-step/2, lo[1]-step/2, 1/step),
-                      dst_crs=self.proj.crs, resampling=Resampling.bilinear)
+        transform = self.proj.affine(lo[0]-step/2, lo[1]-step/2, 1/step)
+        if paths:
+            with MemoryFile(mosaic_vrt(paths)) as mem, mem.open() as source:
+                reproject(rasterio.band(source, 1), out, src_nodata=-32767, dst_nodata=np.nan,
+                          dst_transform=transform, dst_crs=self.proj.crs, resampling=Resampling.bilinear)
+        if not np.isfinite(out).all() and self.allow_coarse:
+            # Korea and offshore windows lack GLO-90 tiles in the supplied cache.
+            # Use only the already-cached ETOPO raster; never fetch or invent data.
+            coarse = self.cache/'ETOPO_2022_v1_60s_N90W180_surface.tif'
+            if not coarse.exists():
+                raise ValueError('Missing cached ETOPO coverage; refusing to download')
+            fill = np.full_like(out,np.nan)
+            with rasterio.open(coarse) as source:
+                reproject(rasterio.band(source,1),fill,dst_nodata=np.nan,
+                          dst_transform=transform,dst_crs=self.proj.crs,resampling=Resampling.bilinear)
+            out = np.where(np.isfinite(out),out,fill)
+            self.coarse_windows += 1
         if not np.isfinite(out).all():
             raise ValueError('Missing cached DEM pixels; refusing to download or fill')
         return lo, out
@@ -137,7 +199,7 @@ class DEM:
             result.extend(map_coordinates(z, rc, order=1, mode='nearest'))
         return np.asarray(result)
 
-    def trace(self, a, b, avoid=None):
+    def trace(self, a, b, avoid=None, land_only=False):
         step = .05
         pad = min(8., max(2., float(np.linalg.norm(b-a))*.18))
         lo, fine = self.grid(np.minimum(a,b)-pad, np.maximum(a,b)+pad, step/2)
@@ -150,6 +212,18 @@ class DEM:
         relative = np.maximum(0,z-gaussian_filter(z,2/step))
         cost = 1+60*(gx*gx+gy*gy)+3*relative/100+np.maximum(z,0)/2500
         h,w = z.shape
+        if land_only:
+            # Coarse ETOPO can prefer coastal tidal flats. Register the Korea
+            # route to the same mainland mask the page actually displays.
+            from rasterio.features import rasterize
+            from affine import Affine
+            polygons = [points(s.rstrip('Z')) for s in re.findall(r'M[^M]+',load('base')['land'])]
+            polygon = max(polygons,key=len)
+            land = rasterize([({'type':'Polygon','coordinates':[polygon.tolist()]},1)],
+                             out_shape=z.shape,transform=Affine(step,0,lo[0]-step/2,0,step,lo[1]-step/2),
+                             fill=0,dtype='uint8').astype(bool)
+            shore = distance_transform_edt(land)*step
+            cost += np.where(land,200*np.maximum(0,1.3-shore)**2,1e6)
         if avoid is not None and len(avoid)>1:
             mask = np.ones((h,w),bool)
             dense = resample(avoid,.04)
@@ -265,7 +339,7 @@ def finish(parts, route):
             raise ValueError('Cannot fit smoothed route into 120 points')
 
 
-def budget_curve(curves, weights):
+def budget_curve(curves, weights, max_points=120):
     """Best-first DP on the already smoothed curve, with an exact vertex budget.
 
     All part endpoints are mandatory. Spend remaining vertices on the largest
@@ -287,7 +361,7 @@ def budget_curve(curves, weights):
     for i,p in enumerate(curves):
         push(i,0,len(p)-1)
     count = len(curves)+1
-    while heap and count<120:
+    while heap and count<max_points:
         score,i,left,right,k = heapq.heappop(heap)
         if -score<.015:
             break
@@ -374,15 +448,22 @@ def remap(events, old, new, selected, current):
                     continue
                 i = a[1]
                 name = STEP_STOPS[i][si]
-                target = stop_position(name) if name else at(points(old[i][4]),ra[3])
-                f,hit,gap = nearest(points(new[i][4]),target)
-                f = round(float(f),3)
+                if name:
+                    target = stop_position(name)
+                else:
+                    target = at(points(old[i][4]),ra[3])
+                p = points(new[i][4])
+                lower = ends.get(i,0)
+                # A returning army must not snap to an earlier outbound pass.
+                tail = section(p,lower,1) if lower else p
+                f,hit,gap = nearest(tail,target)
+                f = round(float(lower+(1-lower)*f),3)
                 a[2:4] = [ends.get(i,0),f]
                 if a[3]<=a[2]:
                     raise ValueError(f'Non-monotone semantic stop: {e[1]} step {si} route {i}')
                 ends[i] = f
                 end = at(points(new[i][4]),f)
-                table.append({'battle':e[1],'step':si,'route':i,'stop':name or '下邽（沿用）',
+                table.append({'battle':e[1],'step':si,'route':i,'stop':name or '沿用',
                               'method':'语义地点' if name else '沿用最近点',
                               'fraction':f,'target':np.round(target,3).tolist(),
                               'endpoint':np.round(end,3).tolist(),
@@ -430,10 +511,10 @@ def retreat_path(e,si,ai,route,routes,reference):
     return p
 
 
-def retreats(events, routes, reference):
+def retreats(events, routes, reference, selected):
     for e,old in zip(events,reference):
         for (name,si,ai),route in RETREATS.items():
-            if e[1]==name:
+            if e[1]==name and (route in selected or route=='a' and 41 in selected):
                 retreat_path(e,si,ai,route,routes,old)
 
 
@@ -441,7 +522,7 @@ def svg(p):
     return 'M'+'L'.join(f'{x:.1f},{y:.1f}' for x,y in p)
 
 
-def verify(oldr, newr, olde, newe):
+def verify(oldr, newr, olde, newe, selected):
     assert len(oldr)==len(newr)
     changed = []
     for i,(a,b) in enumerate(zip(oldr,newr)):
@@ -488,7 +569,7 @@ def verify(oldr, newr, olde, newe):
                     ends[a[1]]=a[3]
     city_gaps = {}
     table = load('route-waypoints')
-    for i in BATCH:
+    for i in selected:
         p = points(newr[i][4])
         for name in table[str(i)]:
             if isinstance(name,str):
@@ -497,11 +578,36 @@ def verify(oldr, newr, olde, newe):
                 city_gaps[f'{i}:{name}'] = round(gap,3)
     for e,ref in zip(newe,olde):
         for (name,si,ai),route in RETREATS.items():
-            if e[1]==name:
+            if e[1]==name and (route in selected or route=='a' and 41 in selected):
                 expected = copy.deepcopy(e)
                 retreat_path(expected,si,ai,route,newr,ref)
                 assert expected[6]['steps'][si-1][1][ai]==e[6]['steps'][si-1][1][ai],('retreat not reversed',name,si,ai)
+    separations = {}
+    for i,names in {0:('江陵府','三江口','澧州'),10:('雁门关','朔州','应州'),
+                    14:('兴化镇','新恩县（约略）','龟州'),31:('宗哥','青唐城','廓州')}.items():
+        if i not in selected:
+            continue
+        p = points(newr[i][4])
+        fs = [nearest(p,stop_position(n))[0] if n else 0 for n in names]
+        incoming,outgoing = (resample(section(p,*fs[j:j+2]),.1) for j in (0,1))
+        city = stop_position(names[1])
+        incoming = incoming[np.linalg.norm(incoming-city,axis=1)>2]
+        outgoing = outgoing[np.linalg.norm(outgoing-city,axis=1)>2]
+        gap = min(nearest(incoming,q)[2] for q in outgoing)
+        assert gap>=1.5,('return corridor overlaps',i,gap)
+        separations[str(i)] = round(gap,3)
+    land_samples = None
+    if 14 in selected:
+        polygon = max([points(s.rstrip('Z')) for s in re.findall(r'M[^M]+',load('base')['land'])],key=len)
+        a,b = polygon,np.roll(polygon,-1,axis=0)
+        samples = resample(points(newr[14][4]),.1)
+        for q in samples:
+            cross = (a[:,1]>q[1])!=(b[:,1]>q[1])
+            x = a[:,0]+(q[1]-a[:,1])*(b[:,0]-a[:,0])/np.where(b[:,1]!=a[:,1],b[:,1]-a[:,1],1)
+            assert np.count_nonzero(cross&(q[0]<x))%2,('Korea route leaves displayed land',q)
+        land_samples = len(samples)
     return {'reference_events_equal_except_m_and_r':True,'routes_changed':changed,
+            'route14_land_samples':land_samples, 'return_separations':separations,
             'endpoints_preserved':True,'fractions_continuous_monotone':True,
             'waypoint_city_gaps':city_gaps,'retreats_match_reversed_routes':True,
             'nanhan_valley_separation':round(nanhan_separation(points(newr[3][4])),3)}
@@ -529,6 +635,157 @@ def write_rows(name, rows):
     file.write_text(''.join(original))
 
 
+# These additions are only called for SECOND_BATCH, preserving pilot geometry.
+_RIVER_NETWORKS = {}
+
+
+def river_network(a, b, year):
+    """Connected contemporary channels; bridge the omitted Dongting lake mouth."""
+    if year not in _RIVER_NETWORKS:
+        from scipy.spatial import cKDTree
+        paths = load('base')['rivers']+[r[3] for r in load('rivers') if r[1]<=year<=r[2]]
+        lines = [points(s) for path in paths for s in re.findall(r'M[^M]+',path)]
+        lines = [p for p in lines if len(p)>1]
+        vertices, lookup, edges, ends = [], {}, [], []
+        def node(q):
+            key = tuple(q)
+            if key not in lookup:
+                lookup[key] = len(vertices)
+                vertices.append(q)
+            return lookup[key]
+        for p in lines:
+            ids = [node(q) for q in p]
+            ends += [ids[0],ids[-1]]
+            edges += [(u,v,float(np.linalg.norm(vertices[u]-vertices[v]))) for u,v in zip(ids,ids[1:])]
+        vertices = np.array(vertices)
+        tree = cKDTree(vertices)
+        starts = np.array([vertices[u] for u,v,d in edges])
+        deltas = np.array([vertices[v]-vertices[u] for u,v,d in edges])
+        den = np.maximum(np.sum(deltas*deltas,axis=1),1e-12)
+        extra = []
+        for n in set(ends):
+            q = vertices[n]
+            u = np.clip(np.sum((q-starts)*deltas,axis=1)/den,0,1)
+            dist = np.linalg.norm(starts+u[:,None]*deltas-q,axis=1)
+            for k in np.flatnonzero((dist<.8)&(u>1e-4)&(u<1-1e-4)):
+                v,w,d = edges[k]
+                extra += [(n,v,float(dist[k]+u[k]*d)),(n,w,float(dist[k]+(1-u[k])*d))]
+            extra += [(n,int(k),float(np.linalg.norm(q-vertices[k]))) for k in tree.query_ball_point(q,.8) if k!=n]
+        u = int(tree.query((994.9,699.6))[1]); v = int(tree.query((1004.,707.))[1])
+        extra.append((u,v,float(np.linalg.norm(vertices[u]-vertices[v]))))
+        pairs = {}
+        for u,v,d in edges+extra:
+            key = tuple(sorted((u,v)))
+            pairs[key] = min(pairs.get(key,float('inf')),d)
+        rr,cc,ww = map(np.array,zip(*[(u,v,d) for (u,v),d in pairs.items()]))
+        graph = coo_matrix((np.r_[ww,ww],(np.r_[rr,cc],np.r_[cc,rr])),shape=(len(vertices),)*2).tocsr()
+        _RIVER_NETWORKS[year] = vertices,graph,lines
+    vertices,graph,lines = _RIVER_NETWORKS[year]
+    connections = []
+    for q in (a,b):
+        ranked = [(nearest(p,q),p) for p in lines]
+        (f,hit,distance),p = min(ranked,key=lambda x:x[0][2])
+        if distance>6:
+            raise ValueError(f'No contemporary river near {q}: {distance}')
+        ls = lengths(p)/lengths(p)[-1]
+        k = min(len(p)-2,max(0,int(np.searchsorted(ls,f)-1)))
+        connections.append((hit,[int(np.argmin(np.linalg.norm(vertices-v,axis=1))) for v in p[k:k+2]]))
+    ha,ia = connections[0]; hb,ib = connections[1]
+    candidates = []
+    for source in ia:
+        ds,prev = dijkstra(graph,indices=source,return_predecessors=True)
+        for target in ib:
+            score = ds[target]+np.linalg.norm(ha-vertices[source])+np.linalg.norm(hb-vertices[target])
+            if not np.isfinite(score):
+                continue
+            walk = [target]
+            while walk[-1]!=source:
+                walk.append(int(prev[walk[-1]]))
+            candidates.append((score,np.vstack((ha,vertices[walk[::-1]],hb))))
+    if not candidates:
+        raise ValueError(f'Disconnected river: {a} -> {b}')
+    p = min(candidates,key=lambda v:v[0])[1]
+    p = p[np.r_[True,np.linalg.norm(np.diff(p,axis=0),axis=1)>.001]]
+    chain = lengths(p)
+    span = max(.1,min(6.,chain[-1]/3))
+    p += np.maximum(0,1-chain/span)[:,None]*(a-ha)
+    p += np.maximum(0,1-(chain[-1]-chain)/span)[:,None]*(b-hb)
+    p[0],p[-1] = a,b
+    return p
+
+
+def trace_second(i, original, values, cities, proj, dem):
+    cp = [original[0],*controls(values,cities,proj),original[-1]]
+    cp = np.array([q for k,q in enumerate(cp) if not k or np.linalg.norm(q-cp[k-1])>.02])
+    parts = []
+    turning = {0:'三江口',10:'朔州',14:'新恩县（约略）',31:'青唐城'}
+    turn = next((k for k,q in enumerate(cp) if i in turning and np.linalg.norm(q-stop_position(turning[i]))<.1),len(cp))
+    outgoing = None
+    for k,(a,b) in enumerate(zip(cp,cp[1:])):
+        if k==turn:
+            outgoing = np.vstack(parts)
+        if i==4 and k<values.index('采石')+1 or i==21 or i==85 and values.index('寿州')+1<=k<=values.index('扬州'):
+            part = river_network(a,b,974 if i==4 else 1052 if i==21 else 957)
+        elif i==87 and values.index('沧州')+1<=k<=values.index('霸州'):
+            # The attested 959 canal is absent from base/rivers. These controls
+            # reconstruct Cangzhou–Ningzhou–Duliu–Yijin, explicitly approximate.
+            part = np.array([a,b])
+        else:
+            count = max(1,math.ceil(np.linalg.norm(b-a)/18))
+            sub = np.linspace(a,b,count+1)
+            chunks = [dem.trace(x,y,outgoing,land_only=i==14) for x,y in zip(sub,sub[1:])]
+            part = np.vstack([p[:-1] for p in chunks]+[chunks[-1][-1:]])
+        parts.append(part)
+    hard = [stop_position(v) for v in values if isinstance(v,str)]
+    merged,group = [],[]
+    for k,part in enumerate(parts):
+        group.append(part)
+        if k==len(parts)-1 or any(np.linalg.norm(part[-1]-q)<.1 for q in hard):
+            merged.append(np.vstack([p[:-1] for p in group]+[group[-1][-1:]]))
+            group = []
+    def erase_loops(p):
+        # Adjacent search windows can re-enter the same grid cell from opposite
+        # sides. Erase that local excursion before simplifying the corridor.
+        out,seen = [],{}
+        for q in p:
+            key = tuple(np.rint(q/.05).astype(int))
+            if key in seen:
+                cut = seen[key]
+                for x in out[cut+1:]:
+                    seen.pop(tuple(np.rint(x/.05).astype(int)),None)
+                out = out[:cut+1]
+            else:
+                seen[key] = len(out)
+                out.append(q)
+        return np.array(out)
+    curves = [chaikin(chaikin(simplify(erase_loops(p),.18))) for p in merged]
+    # Round each through-city turn with a shared tangent while retaining the
+    # city itself. Only short approaches change; the DEM corridor stays intact.
+    for k in range(len(curves)-1):
+        left,right = curves[k],curves[k+1]
+        city = left[-1]
+        if min(lengths(left)[-1],lengths(right)[-1])<.8:
+            continue  # Locked old endpoint tails are deliberately retained.
+        radius = min(1.2,lengths(left)[-1]/4,lengths(right)[-1]/4)
+        fa = 1-radius/lengths(left)[-1]; fb = radius/lengths(right)[-1]
+        a,b = at(left,fa),at(right,fb)
+        incoming,outgoing = city-a,b-city
+        incoming /= np.linalg.norm(incoming); outgoing /= np.linalg.norm(outgoing)
+        tangent = incoming+outgoing
+        if np.linalg.norm(tangent)<.2:
+            tangent = np.array([-incoming[1],incoming[0]])
+        tangent /= np.linalg.norm(tangent)
+        def bezier(a,c1,c2,b):
+            t = np.linspace(0,1,17)[:,None]
+            return (1-t)**3*a+3*(1-t)**2*t*c1+3*(1-t)*t*t*c2+t**3*b
+        l = bezier(a,a+incoming*radius/3,city-tangent*radius/3,city)
+        r = bezier(city,city+tangent*radius/3,b-outgoing*radius/3,b)
+        curves[k] = np.vstack((section(left,0,fa)[:-1],l))
+        curves[k+1] = np.vstack((r[:-1],section(right,fb,1)))
+    # 90 vertices leave room for 14 reverse paths in the 1440 KB artifact.
+    return budget_curve(curves,[1]*len(curves),max_points=90)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('route',nargs='?',type=int)
@@ -551,8 +808,8 @@ def main():
     table, cities, proj = load('route-waypoints'),load('cities'),Projection()
     selected = args.only or ({args.route} if args.route is not None else {int(k) for k in table})
     if not selected <= BATCH:
-        parser.error('This pilot only authorizes the listed 15 route indexes')
-    dem = DEM(args.cache.resolve(),proj)
+        parser.error('Only the first and second batch route indexes are authorized')
+    dem = DEM(args.cache.resolve(),proj,allow_coarse=bool(selected & SECOND_BATCH))
     previous = baseline('dee716b','routes')
     tolerances = {}
     if not args.verify:
@@ -561,7 +818,9 @@ def main():
             values = json.loads(args.waypoints) if args.waypoints else table[str(i)]
             cp = [original[0],*controls(values,cities,proj),original[-1]]
             cp = np.array([p for k,p in enumerate(cp) if k==0 or np.linalg.norm(p-cp[k-1])>.02])
-            if i==65:
+            if i in SECOND_BATCH:
+                p,tolerance = trace_second(i,original,values,cities,proj,dem)
+            elif i==65:
                 parts = river_parts(cp[0],cp[-1],[])
                 if parts is None:
                     raise ValueError('Missing Jialing river channel')
@@ -594,26 +853,32 @@ def main():
                             parts.append(part)
                     else:
                         parts.append(dem.trace(a,b,avoid))
-            p,tolerance = finish(parts,i)
+            if i not in SECOND_BATCH:
+                p,tolerance = finish(parts,i)
             p[0],p[-1] = original[0],original[-1]
             newr[i][4],newr[i][5] = svg(p),label(p,cities)
             tolerances[str(i)] = tolerance
             print(f'Traced {i}: {len(p)} points; curve tolerance {tolerance}',flush=True)
         newe,stops = remap(olde,oldr,newr,selected,newe)
-        retreats(newe,newr,olde)
-    expected,stops = remap(olde,oldr,newr,BATCH,newe)
+        retreats(newe,newr,olde,selected)
+    expected,stops = remap(olde,oldr,newr,selected,newe)
     assert expected==newe,'Stored m fractions differ from semantic stop table'
     for row in stops:
         if row['method']=='语义地点' and row['route']!=65:
             assert row['gap']<=.3,('Semantic stop too far from city',row)
-    verification = verify(oldr,newr,olde,newe)
+    assert all(oldr[i]==newr[i] for i in FIRST_BATCH), 'Accepted first-batch paths changed'
+    verification = verify(oldr,newr,olde,newe,selected)
+    verification['first_batch_routes_byte_equal'] = True
     report = {'reference':args.reference,'verification':verification,
               'curve_tolerances':tolerances,'stops':stops,'routes':{}}
     for i in sorted(selected):
-        before,prior,after = (metrics(points(r[i][4]),dem) for r in (oldr,previous,newr))
+        before = metrics(points(oldr[i][4]),dem)
+        prior = before if oldr[i]==previous[i] else metrics(points(previous[i][4]),dem)
+        after = metrics(points(newr[i][4]),dem)
         report['routes'][str(i)] = {'old':before,'previous':prior,'new':after,
                                     'length_ratio':round(after['length_page']/before['length_page'],3)}
         print(i,json.dumps(report['routes'][str(i)]),flush=True)
+    report['cached_etopo_windows'] = dem.coarse_windows
     if args.write:
         write_rows('routes',newr)
         write_rows('events',newe)
