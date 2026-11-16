@@ -204,6 +204,9 @@ svg.m-battle .rt g.foc .ah{display:block}
 #g-bt .cl-t{font-size:13px;font-weight:900;stroke:#efe4c8;stroke-width:3px}
 #g-bt .cl-l{font-size:11px;font-weight:600;fill:#2b2118;stroke-width:2.6px}
 #g-bt .tk{font-size:11px;font-weight:600;stroke-width:2.4px}
+#g-bt .siege circle{stroke-width:2.2px;stroke-dasharray:5 3;opacity:.9}
+#g-bt .siege g path{stroke-width:1.8px;stroke-linecap:round}
+#g-bt .sg-l{font-size:11.5px;font-weight:700;text-anchor:middle;stroke:#efe4c8;stroke-width:3px;paint-order:stroke}
 #g-bt .zl{font-family:var(--display);font-size:20px;text-anchor:middle;stroke-width:4px;letter-spacing:.1em}
 #g-gain path{stroke-width:calc(2px*var(--s));stroke-linejoin:round;pointer-events:none}
 svg.m-battle #g-gain{display:none}

@@ -229,6 +229,13 @@ function doAct(a,animate,t1,cur){ // 返回该动作结束的时间（毫秒）�
     pop(inner,t1+350,animate);return t1+850}
   if(k==='z'){const col=RCOL[a[2]],p=el('path',{d:HIST.shapes[a[1]],fill:col,'fill-opacity':.3,stroke:DARK[a[2]]},$('g-zone'));fade(p,t1+500,animate);
     if(cur){const g=pt(gb,a[4],a[5]);el('text',{class:'zl',y:6,fill:DARK[a[2]]},g).textContent=a[3];fade(g,t1+900,animate)}return t1+1600}
+  if(k==='s'){const g=pt(gb,a[1],a[2]),col=RCOL[a[3]],r=a[4]||5,inner=el('g',{class:'siege'},g),R=r*sc/(Math.pow(view.k,.2)||1);
+    const ring=el('circle',{r:R,fill:'none',stroke:col},inner),tick=el('g',{stroke:col},inner);
+    for(let i=0;i<8;i++){const q=i*Math.PI/4,c=Math.cos(q),s=Math.sin(q);el('path',{d:`M${(c*(R+7)).toFixed(1)},${(s*(R+7)).toFixed(1)}L${(c*(R+1.5)).toFixed(1)},${(s*(R+1.5)).toFixed(1)}`},tick)}
+    if(a[5]&&cur){const t=el('text',{class:'sg-l',y:-R-11,fill:DARK[a[3]]},inner);t.textContent=a[5]}
+    if(animate&&!REDUCED&&inner.animate){bt.anims.push(inner.animate([{opacity:0,transform:'scale(1.9)'},{opacity:1,transform:'scale(1)'}],{duration:1200,delay:t1,easing:'cubic-bezier(.3,.6,.3,1)',fill:'both'}));
+      bt.anims.push(ring.animate([{strokeDashoffset:0},{strokeDashoffset:-24}],{duration:1600,delay:t1+1200,iterations:Infinity}))}
+    return t1+1300}
   return 0}
 function clearStage(){bt.tok++;bt.pre=null;clearTimeout(bt.timer);bt.anims.forEach(a=>a.cancel());bt.anims=[];bt.stack={};$('g-bt').textContent='';$('g-zone').textContent=''}
 function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));clearStage();narrStop();bt.si=k;const tok=bt.tok,e=C.ev[battle];
