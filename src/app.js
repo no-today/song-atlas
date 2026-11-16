@@ -549,7 +549,7 @@ function routePts(g){if(!g._pts){const L=g._L||(g._L=g._ln.getTotalLength());g._
 function battleLayout(fixed,box,sc,vx,vy,ls){const notes=[...document.querySelectorAll('#g-bt .cl-note,#g-bt .take,#g-bt .act-note')],key=[bt.tok,com.cx,com.cy,com.k,cw,ch,btX,notes.length].join('/');
   if(bt.layout?.key===key){fixed.push(...bt.layout.boxes);return}
   const occupied=fixed.slice(),placed=[],points=[],P=(x,y)=>[(x-vx)*sc,(y-vy)*sc];
-  for(const g of CITY)if(g._v&&getComputedStyle(g).display!=='none')for(const n of g.children){if(n.classList.contains('fl'))continue;const b=box(n);if(b[2]-b[0]>4&&b[3]-b[1]>2)occupied.push(b)}
+  for(const g of CULL)if(g._v&&getComputedStyle(g).display!=='none')for(const n of g.children){if(n.classList.contains('fl'))continue;const b=box(n);if(b[2]-b[0]>4&&b[3]-b[1]>2)occupied.push(b)}
   if(mode==='battle')for(let s=0;s<=bt.si;s++)for(const a of bt.steps[s][1])if(a[0]==='c'){const [x,y]=P(a[1],a[2]);occupied.push([x-10*ls,y-10*ls,x+10*ls,y+10*ls])}
   for(const [g,f] of bt.ends||[])if(f>0)for(const q of routePts(g))if(q[2]<=f+.02)points.push(P(q[0],q[1]));
   for(const p of document.querySelectorAll('#g-bt .adhoc')){const L=p.getTotalLength();for(let i=0;i<=40;i++){const q=p.getPointAtLength(L*i/40);points.push(P(q.x,q.y))}}
