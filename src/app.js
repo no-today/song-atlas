@@ -259,8 +259,10 @@ function doAct(a,animate,t1,cur){ // 返回该动作结束的时间（毫秒）�
   if(k==='v'){const r=ROUTE[a[1]],a0=C.rt[a[1]][7];if(!a0)return 0;r._army=[a0[0],a[2],a[3],a0[3]];if(r._tk)r._tk.remove();r._tk=undefined;routeFrac(r,r._f||0);const p=r._ln.getPointAtLength((r._L||0)*(r._f||0)),g=pt(gb,p.x,p.y,'strength');
     if(cur){actNote(g,p.x,p.y,a[4],r._side);if(animate&&!REDUCED)bt.anims.push(r._tk.animate([{filter:'brightness(1.6)'},{filter:'brightness(1)'}],{duration:1000,delay:t1,fill:'backwards'}))}return t1+1000}
   return 0}
-function clearStage(){bt.tok++;bt.pre=null;bt.preNode=null;clearTimeout(bt.timer);bt.anims.forEach(a=>a.cancel());bt.anims=[];bt.stack={};for(const g of ROUTE){if(g._cut){g._cut=null;routeFrac(g,g._f||0)}if(g._army){g._army=null;if(g._tk)g._tk.remove();g._tk=undefined}}$('g-bt').textContent='';$('g-zone').textContent=''}
-function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));const pre=C.ev[battle][6].pre?bt.pre:null,preNode=k===0?bt.preNode:null;if(preNode)preNode.remove();clearStage();if(preNode){$('g-bt').append(preNode);bt.preNode=preNode}narrStop();bt.si=k;const tok=bt.tok,e=C.ev[battle];
+function preHold(){return new Promise(resolve=>{const finish=skip=>{if(bt.hold!==h)return;clearTimeout(h.timer);wrap.removeEventListener('click',click,true);if(bt.hold===h)bt.hold=null;if(skip)fadePre();resolve(!!skip)},click=e=>{if(moved>4||e.target.closest(uiControls+',#opening'))return;e.preventDefault();e.stopImmediatePropagation();finish(true)},h={finish,timer:setTimeout(()=>finish(false),3000)};bt.hold=h;capSet('战前布势');uiShow();wrap.addEventListener('click',click,true)})}
+function skipPre(){if(!bt.hold)return false;bt.hold.finish(true);return true}
+function clearStage(){bt.tok++;bt.hold?.finish(false);bt.pre=null;bt.preNode=null;clearTimeout(bt.timer);bt.anims.forEach(a=>a.cancel());bt.anims=[];bt.stack={};for(const g of ROUTE){if(g._cut){g._cut=null;routeFrac(g,g._f||0)}if(g._army){g._army=null;if(g._tk)g._tk.remove();g._tk=undefined}}$('g-bt').textContent='';$('g-zone').textContent=''}
+function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));const pre=!film.on||C.ev[battle][6].pre?bt.pre:null,preNode=k===0?bt.preNode:null;if(preNode)preNode.remove();clearStage();if(preNode){$('g-bt').append(preNode);bt.preNode=preNode}narrStop();bt.si=k;const tok=bt.tok,e=C.ev[battle];
   let b=null;for(let s=Math.max(0,k-1);s<=k;s++){const q=bt.steps[s][2];if(q)b=b?[Math.min(b[0],q[0]),Math.min(b[1],q[1]),Math.max(b[2],q[2]),Math.max(b[3],q[3])]:q.slice()}
   for(const g of ROUTE)if(g._ev===e[1]){g._ln.removeAttribute('marker-end');g._cur=false;routeFrac(g,0)}
   bt.ends=new Map();for(let s=0;s<=k;s++)for(const a of bt.steps[s][1])if(a[0]==='m')bt.ends.set(ROUTE[a[1]],a[3]);bt.layout=null;
@@ -268,11 +270,12 @@ function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));const p
     for(const a of acts)if(a[0]==='m'||a[0]==='a')t1=Math.max(t1,doAct(a,an,0,s===k));
     let t2=t1;for(const a of acts)if(a[0]!=='m'&&a[0]!=='a')t2=Math.max(t2,doAct(a,an,t1,s===k));return t2};
   for(let s=0;s<k;s++)draw(s,false);
+  const cap=`<b class="cy">${e[0]}</b>${e[1]} · 第 ${k+1}/${bt.steps.length} 步`;
   if(film.on)filmCap();else{setHash('b='+encodeURIComponent(e[1])+'&s='+(k+1));
-    capSet(`<b class="cy">${e[0]}</b>${e[1]} · 第 ${k+1}/${bt.steps.length} 步`);$('nr-n').textContent=`${k+1} / ${bt.steps.length}`;
+    capSet(cap);$('nr-n').textContent=`${k+1} / ${bt.steps.length}`;
     $('nr-prev').disabled=k===0;$('nr-next').disabled=k===bt.steps.length-1}
   document.querySelectorAll('#battlebox .steps li').forEach((li,i)=>{li.classList.toggle('cur',i===k);li.classList.toggle('done',i<k);if(i===k)li.scrollIntoView({block:'nearest'})});
-  const go=()=>{fadePre();const end=draw(k,animate);scheduleCull();if(end)setTimeout(()=>{if(tok===bt.tok)scheduleCull()},end+80);
+  const go=()=>{if(!film.on)capSet(cap);fadePre();const end=draw(k,animate);scheduleCull();if(end)setTimeout(()=>{if(tok===bt.tok)scheduleCull()},end+80);
     if(film.on){if(film.playing)filmSay(end);return}
     if(!bt.playing)return;const n=stepNarr(k),say=narrate(n.t,n.au,2400,n.tm);
     Promise.all([say.done,wait(end)]).then(()=>{if(tok!==bt.tok||!bt.playing)return;
@@ -280,11 +283,11 @@ function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));const p
       bt.timer=setTimeout(()=>setPlay(false),400)})};
   if(!animate&&!pre){if(b){view=boxView(b,55);commit()}return go()}
   let p=pre||Promise.resolve();
-  if(b)p=p.then(()=>tok===bt.tok&&flyTo(boxView(b,55)));
+  if(b)p=p.then(skip=>tok===bt.tok&&flyTo(boxView(b,55),skip?400:3000));
   p.then(()=>{if(tok===bt.tok)go()})}
 function setPlay(p){bt.playing=p;if(p)drawerSet(false);if(!p)clearTimeout(bt.timer);uiSync();if(film.on)return;if(!p)narrStop();$('nr-play').textContent=p?'❚❚':'▶';$('nr-play').setAttribute('aria-label',p?'暂停':'播放')}
 $('nr-prev').addEventListener('click',()=>{if(film.on)return filmShow(film.i-1);setPlay(false);showStep(Math.max(0,bt.si-1),true)});
-$('nr-next').addEventListener('click',()=>{if(film.on)return filmShow(film.i+1);setPlay(false);showStep(Math.min(bt.steps.length-1,bt.si+1),true)});
+$('nr-next').addEventListener('click',()=>{if(film.on)return filmShow(film.i+1);if(skipPre())return;setPlay(false);showStep(Math.min(bt.steps.length-1,bt.si+1),true)});
 $('nr-play').addEventListener('click',()=>{unlockAudio();if(film.on)return filmToggle();if(bt.playing)return setPlay(false);setPlay(true);showStep(bt.si>=bt.steps.length-1?0:bt.si+1,true)});
 // inFilm：由全片驱动（不自动连播，每步读完由全片决定下一段）
 function enterBattle(i,step0,inFilm){const e=C.ev[i],b0=e[6];if(mode!=='battle'){savedView={...view};btX=true}else clearStage();battle=i;sel=null;
@@ -292,7 +295,7 @@ function enterBattle(i,step0,inFilm){const e=C.ev[i],b0=e[6];if(mode!=='battle')
   EVM.forEach((m,j)=>m.classList.toggle('foc',j===i));CITY.forEach(g=>g.classList.remove('rel'));e[8].forEach(j=>CITY[j].classList.add('rel'));
   setMode('battle');setYear(e[0]);
   // 先飞到整场战役的全貌、停一下，再进入第一步（showStep 接着 bt.pre）
-  const entryTok=bt.tok+1;bt.pre=flyTo(boxView(e[7],40)).then(()=>{if(!step0&&entryTok===bt.tok&&!(inFilm&&bt.preNode))battlePre(e);return wait(REDUCED?0:700)});
+  const entryTok=bt.tok+1;bt.pre=flyTo(boxView(e[7],40)).then(()=>{if(entryTok!==bt.tok)return;if(!step0&&!(inFilm&&bt.preNode))battlePre(e);return !inFilm&&step0===undefined&&b0.pre?.length?preHold():wait(REDUCED?0:700)});
   const n=BATTLES.indexOf(i);bt.steps=b0.steps;
   $('battlebox').innerHTML=`<div class="hd"><b>${e[0]}</b><h2>${e[1]}</h2></div><p>${e[5]}</p>
     <div class="sec">战事经过</div><ol class="steps">${b0.steps.map(s=>`<li><span>${s[0]}</span></li>`).join('')}</ol>
@@ -422,13 +425,13 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
 let flyTok=0,flying=false;
 function boxView(b,minSpan){const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2,w=Math.max(b[2]-b[0],minSpan),h=Math.max(b[3]-b[1],minSpan*.6),padX=narrow()?30:150,padT=narrow()?65:90,padB=narrow()?180:230;
   const k=Math.min((cw-2*padX)/(base*w),(ch-padT-padB)/(base*h)),v={cx,cy,k:Math.max(1.3,Math.min(k,8.5))};v.cy+=(padB-padT)/2/(base*v.k);return v}
-function flyTo(v){flying=true;const tok=++flyTok,W0=cw/(base*view.k),W1=cw/(base*v.k),dx=v.cx-view.cx,dy=v.cy-view.cy,d2=dx*dx+dy*dy,x0=view.cx,y0=view.cy;
+function flyTo(v,limit=3000){flying=true;const tok=++flyTok,W0=cw/(base*view.k),W1=cw/(base*v.k),dx=v.cx-view.cx,dy=v.cy-view.cy,d2=dx*dx+dy*dy,x0=view.cx,y0=view.cy;
   const R=Math.SQRT2;let S,at;
   if(d2<1e-6){S=Math.log(W1/W0)/R;at=t=>[x0+t*dx,y0+t*dy,W0*Math.exp(R*t*S)]}
   else{const d1=Math.sqrt(d2),b0=(W1*W1-W0*W0+4*d2)/(2*W0*2*d1),b1=(W1*W1-W0*W0-4*d2)/(2*W1*2*d1),r0=Math.log(Math.sqrt(b0*b0+1)-b0),r1=Math.log(Math.sqrt(b1*b1+1)-b1);S=(r1-r0)/R;
     at=t=>{const s=t*S,c0=Math.cosh(r0),u=W0/(2*d1)*(c0*Math.tanh(R*s+r0)-Math.sinh(r0));return [x0+u*dx,y0+u*dy,W0*c0/Math.cosh(R*s+r0)]}}
   if(REDUCED||!isFinite(S)||Math.abs(S)<.03){flying=false;view={...v};commit();return Promise.resolve()}
-  const dur=Math.max(700,Math.min(3000,Math.abs(S)*900));
+  const dur=Math.min(limit,Math.max(700,Math.abs(S)*900));
   return new Promise(res=>{let t0=null;const step=ts=>{if(tok!==flyTok)return res();if(t0===null)t0=ts;const u=Math.min(1,(ts-t0)/dur),e=u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2,p=at(e);
     if(u<1){view={cx:p[0],cy:p[1],k:cw/(base*p[2])};preview();requestAnimationFrame(step)}else{flying=false;view={...v};commit();res()}};requestAnimationFrame(step)})}
 function flyStop(){flyTok++;flying=false}
@@ -536,7 +539,7 @@ const uiAuto=()=>uiPlaying()||!narrow()&&document.body.classList.contains('nopan
 const uiControls='.tools,#ptoggle,#loc,#narr,#scale,#nr-cap';
 function uiIdle(idle){if(wrap.classList.contains('idle')===idle)return;if(idle)$('nr-cap').getAnimations().forEach(a=>a.cancel());wrap.classList.toggle('idle',idle);bt.layout=null;scheduleCull()}
 function uiShow(){clearTimeout(uiT);uiT=0;uiIdle(false);if(uiAuto())uiT=setTimeout(uiHide,2500)}
-function uiHide(){clearTimeout(uiT);uiT=0;if(!uiAuto())return uiIdle(false);if(!$('layers').hidden||!$('chapters').hidden||$('about').classList.contains('open')||!$('opening').hidden||narrow()&&$('panel').classList.contains('drawer-open')||matchMedia('(hover:hover)').matches&&document.querySelector(uiControls.split(',').map(s=>s+':hover').join(',')))return uiShow();uiIdle(true)}
+function uiHide(){clearTimeout(uiT);uiT=0;if(!uiAuto())return uiIdle(false);if(bt.hold||!$('layers').hidden||!$('chapters').hidden||$('about').classList.contains('open')||!$('opening').hidden||narrow()&&$('panel').classList.contains('drawer-open')||matchMedia('(hover:hover)').matches&&document.querySelector(uiControls.split(',').map(s=>s+':hover').join(',')))return uiShow();uiIdle(true)}
 // 换段不重新弹出控件；结束播放后按右栏状态恢复。
 function uiSync(){if(!uiAuto()){clearTimeout(uiT);uiT=0;uiIdle(false)}else if(!uiT&&!wrap.classList.contains('idle'))uiT=setTimeout(uiHide,2500)}
 wrap.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')uiShow()});
@@ -658,7 +661,7 @@ $('aboutclose').addEventListener('click',()=>$('about').classList.remove('open')
 $('about').addEventListener('click',e=>{if(e.target.id==='about')$('about').classList.remove('open')});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();if(!$('chapters').hidden)chaptersClose();else if($('about').classList.contains('open'))$('about').classList.remove('open');else if(!$('opening').hidden)openingClose();else if(film.on)filmEnd();else if(mode==='battle')leaveBattle(true);return}
   if(!$('chapters').hidden||$('about').classList.contains('open'))return;
-  if(e.key===' '&&!e.repeat&&!e.target.closest('textarea,select,[contenteditable],input:not([type=range])')){e.preventDefault();if(mode==='battle'&&!film.on)$('nr-play').click();else filmToggle();return}
+  if(e.key===' '&&!e.repeat&&!e.target.closest('textarea,select,[contenteditable],input:not([type=range])')){e.preventDefault();if(mode==='battle'&&!film.on){if(!skipPre())$('nr-play').click()}else filmToggle();return}
   if(e.target.closest('input,textarea,select,[contenteditable]'))return;
   if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();if(film.on||mode==='battle')$(e.key==='ArrowRight'?'nr-next':'nr-prev').click();else userYear(year+(e.key==='ArrowRight'?1:-1))}});
 
