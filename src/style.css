@@ -296,6 +296,7 @@ svg.m-battle .pl{opacity:.55}
 #loc-rect{fill:rgba(168,48,31,.08);stroke:#a8301f;stroke-width:6;vector-effect:non-scaling-stroke;stroke-width:1.6}
 /* ---------- 部队标记 ---------- */
 .tok{pointer-events:none}
+.rt .tok{transition:opacity .15s}.rt .tok.yield{opacity:.08!important}
 .tok text{stroke:none}
 .rt .tok .tk-k{fill:#f5ecd6;font-size:10.5px;font-family:var(--display)}
 .rt .tok .tk-l{font-size:10.5px;font-weight:600;letter-spacing:.02em}

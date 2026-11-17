@@ -189,7 +189,12 @@ function routeFrac(g,f){if(!g._L)g._L=g._ln.getTotalLength();const L=g._L,d=`${L
   else{g._ln.style.visibility=g._halo.style.visibility=g._ah.style.visibility='';const p=g._ln.getPointAtLength(L*f),q=g._ln.getPointAtLength(Math.max(0,L*f-3));
     g._ah.style.transform=`translate(${p.x}px,${p.y}px) rotate(${Math.atan2(p.y-q.y,p.x-q.x)*180/Math.PI}deg) scale(var(--s))`}
   g._ah.style.opacity=g._cut&&f>g._cut.f?.3:'';g._lb.style.opacity=g._cur&&f>=.45?1:0;
-  const tk=armyTok(g);if(tk){if(f<=0)tk.style.display='none';else{const p=g._ln.getPointAtLength(g._L*f);tk.style.display='';tk.style.opacity=g._cur?1:.62;tk._tf=`translate(${p.x}px,${p.y}px) scale(calc(var(--s) * ${tk._z}))`;tk.style.transform=tk._tf+` scale(${tk._shrink||1}) translate(${tk._dx||0}px,${tk._dy||0}px)`}}}
+  const tk=armyTok(g);if(tk){if(f<=0)tk.style.display='none';else{const p=g._ln.getPointAtLength(g._L*f);tk.style.display='';tk.style.opacity=g._cur?1:.62;tk._tf=`translate(${p.x}px,${p.y}px) scale(calc(var(--s) * ${tk._z}))`;tk.style.transform=tk._tf+` scale(${tk._shrink||1}) translate(${tk._dx||0}px,${tk._dy||0}px)`;if(mode==='battle')tokYield(g,tk,f)}}}
+// 行军中的旗签优先：它滑过的静止旗签（两路都在走时为先出发的一路）暂时淡出，滑过即恢复（终点位置已由 battleLayout 排开）
+function tokYield(g,tk,f){const moving=f<(bt.ends?.get(g)??f)-.002,b=moving&&tk.getBoundingClientRect();
+  for(const o of ROUTE){const t=o._tk;if(!t||o===g||!moving&&!t._cov?.has(g))continue;t._cov||=new Set;
+    let hit=false;if(moving&&t.style.display!=='none'&&(!(o._f<(bt.ends?.get(o)??0)-.002)||o._i<g._i)){const r=t.getBoundingClientRect();hit=b.left<r.right&&b.right>r.left&&b.top<r.bottom&&b.bottom>r.top}
+    if(hit)t._cov.add(g);else t._cov.delete(g);t.classList.toggle('yield',t._cov.size>0)}}
 // 部队标记：路线 r[7]=[部队名,人数,口径,兵种]，跟着行军箭头走；大小随兵力略增
 const fmtN=(n,q)=>!n?'':(q==='号'?'号':q==='约'?'约':'')+(n>=10000?(Math.round(n/1000)/10)+'万':n+'人');
 function armyTok(g){if(g._tk!==undefined)return g._tk;const a=g._army||C.rt[g._i][7];if(!a){g._tk=null;return null}
@@ -261,7 +266,7 @@ function doAct(a,animate,t1,cur){ // 返回该动作结束的时间（毫秒）�
   return 0}
 function preHold(){return new Promise(resolve=>{const finish=skip=>{if(bt.hold!==h)return;clearTimeout(h.timer);wrap.removeEventListener('click',click,true);if(bt.hold===h)bt.hold=null;if(skip)fadePre();resolve(!!skip)},click=e=>{if(moved>4||e.target.closest(uiControls+',#opening'))return;e.preventDefault();e.stopImmediatePropagation();finish(true)},h={finish,timer:setTimeout(()=>finish(false),3000)};bt.hold=h;capSet('战前布势');uiShow();wrap.addEventListener('click',click,true)})}
 function skipPre(){if(!bt.hold)return false;bt.hold.finish(true);return true}
-function clearStage(){bt.tok++;bt.hold?.finish(false);bt.pre=null;bt.preNode=null;clearTimeout(bt.timer);bt.anims.forEach(a=>a.cancel());bt.anims=[];bt.stack={};for(const g of ROUTE){if(g._cut){g._cut=null;routeFrac(g,g._f||0)}if(g._army){g._army=null;if(g._tk)g._tk.remove();g._tk=undefined}}$('g-bt').textContent='';$('g-btm').textContent='';$('g-zone').textContent=''}
+function clearStage(){bt.tok++;bt.hold?.finish(false);bt.pre=null;bt.preNode=null;clearTimeout(bt.timer);bt.anims.forEach(a=>a.cancel());bt.anims=[];bt.stack={};for(const g of ROUTE){if(g._tk){g._tk._cov=null;g._tk.classList.remove('yield')}if(g._cut){g._cut=null;routeFrac(g,g._f||0)}if(g._army){g._army=null;if(g._tk)g._tk.remove();g._tk=undefined}}$('g-bt').textContent='';$('g-btm').textContent='';$('g-zone').textContent=''}
 function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));const pre=!film.on||C.ev[battle][6].pre?bt.pre:null,preNode=k===0?bt.preNode:null;if(preNode)preNode.remove();clearStage();if(preNode){$('g-bt').append(preNode);bt.preNode=preNode}narrStop();bt.si=k;const tok=bt.tok,e=C.ev[battle];
   let b=null;for(let s=Math.max(0,k-1);s<=k;s++){const q=bt.steps[s][2];if(q)b=b?[Math.min(b[0],q[0]),Math.min(b[1],q[1]),Math.max(b[2],q[2]),Math.max(b[3],q[3])]:q.slice()}
   for(const g of ROUTE)if(g._ev===e[1]){g._ln.removeAttribute('marker-end');g._cur=false;routeFrac(g,0)}
