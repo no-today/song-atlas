@@ -15,12 +15,15 @@
 每条预算 90 点，以同时容纳撤退线、满足单文件 1440 KB 上限。
 高丽、漠北及海面缺 GLO-90 的窗口只用已有 ETOPO 2022（60 角秒），不下载。
 第三批沿用第二批平滑法，长线预算 120 点，其余 90 点；海路以全部陆地/岛屿
-多边形屏蔽 8 邻域网格，成品按 0.025 单位采样核验。75、76、77 的固定端点
-在底图陆内，保留 main。第三批河网增加河线内部接点，不改变前两批河网。
+多边形屏蔽 8 邻域网格，成品按 0.025 单位采样核验。75、76、77 使用独立
+近岸模式，允许将陆内首尾配准到最近海岸；不改前 84 条已验收路线的分支。
+第三批河网增加河线内部接点，不改变前两批河网。
 第三批上限 1480 KB；--only 可分别重算前两批，断言 49 条记录与 main 相同。
 输出先 DP，再 Chaikin 两遍（南汉南段、剑州—大获城四遍），再对曲线作细化以符合 120 点上限。
 每段锁住途经点，保留原路线端点。全部坡度按最终一位小数 SVG 约每 95m
 采样计算，不能用寻路中间结果冒充成品。报告同时列 main、dee716b 和成品。
+海路补做 75/76/77 例外：最多 720 点、三位小数，端点按代表地点配准海岸；
+澉浦停点锁定，港外带状控制允许平滑偏移 1 单位，本批产物上限 1530 KB。
 """
 import argparse
 import copy
@@ -48,9 +51,8 @@ FIRST_BATCH = {1, 2, 3, 26, 27, 28, 29, 30, 38, 39, 40, 41, 61, 64, 65}
 SECOND_BATCH = {0, *range(4, 23), 24, 25, *range(31, 34), *range(79, 88)}
 # Route 23's coastal/port reconstruction did not pass; retain main unchanged.
 THIRD_BATCH = {*range(34, 38), *range(42, 61), 62, 63, *range(66, 79)}
-# Fixed inland endpoints make these three sea routes impossible to validate
-# without changing the map or the authorized endpoints. Keep main verbatim.
-DEFERRED_THIRD = {75, 76, 77}
+# Coastal follow-up alone permits moving inland endpoints to the displayed shore.
+COASTAL = {75, 76, 77}
 BATCH = FIRST_BATCH | SECOND_BATCH | THIRD_BATCH
 # Explicit editorial decisions: step numbers are 1-based; None means retained
 # nearest-point mapping because there is no independent plotted stop position.
@@ -101,6 +103,8 @@ STEP_STOPS = {
     71: {1:'郢州', 2:'鄂州', 3:'安庆（约略）', 6:'建康府'},
     72: {4:'芜湖（约略）'}, 73: {2:'常州', 5:'皋亭山（会师约略）'},
     74: {3:'独松关', 5:'皋亭山（会师约略）'}, 78: {2:None},
+    75: {4:'澉浦海岸（约略）', 5:'皋亭方向海岸'},
+    76: {}, 77: {2:'崖山南侧海岸'},
 }
 # event, step, action index -> corresponding route; 'a' is the unchanged
 # embedded Xianrenguan attack, whose retreat must reverse that exact attack.
@@ -158,6 +162,17 @@ def stop_position(name):
     if name in ('对马近岸','壹岐近岸','博多湾近岸'):
         # Battles are plotted inland; stop ships outside the displayed shore.
         return offshore(stop_position({'对马近岸':'对马','壹岐近岸':'壹岐','博多湾近岸':'博多'}[name]))
+    if name in ('江阴出海口','临安出海口','潮阳出海口','皋亭方向海岸','崖山南侧海岸'):
+        i,end = {'江阴出海口':(75,0),'临安出海口':(76,0),'潮阳出海口':(77,0),
+                 '皋亭方向海岸':(75,-1),'崖山南侧海岸':(77,-1)}[name]
+        original=points(baseline('main','routes')[i][4])
+        return coastal_route_ends(i,original)[0 if end==0 else 1]
+    if name=='澉浦海岸（约略）':
+        return coastal_endpoint(np.array(Projection().proj(120.88,30.40)),force=True)
+    if name in ('温州近岸','福州近岸','泉州近岸','碙洲方向近岸'):
+        q = (np.array(Projection().proj(110.55,20.90)) if name=='碙洲方向近岸'
+             else stop_position(name[:-2]))
+        return coastal_offset(q,3.5)
     if name in special:
         return np.asarray(special[name],float)
     matches = [c for c in load('cities')+load('labels') if c[0]==name]
@@ -580,8 +595,12 @@ def verify(oldr, newr, olde, newe, selected):
         assert i in BATCH, ('unexpected route',i)
         assert a[:4]+a[6:]==b[:4]+b[6:], ('route fields',i)
         p,q = points(a[4]),points(b[4])
-        assert np.array_equal(p[[0,-1]],q[[0,-1]]), ('endpoints',i)
-        assert len(q)<=120, ('point limit',i)
+        if i in COASTAL:
+            expected = np.array(coastal_route_ends(i,p))
+            assert np.max(np.linalg.norm(expected-q[[0,-1]],axis=1))<=.002,('coastal endpoints',i)
+        else:
+            assert np.array_equal(p[[0,-1]],q[[0,-1]]), ('endpoints',i)
+        assert len(q)<=(720 if i in COASTAL else 120), ('point limit',i)
         assert nearest(q,np.array(b[5]))[2]<.08, ('label off path',i)
         changed.append(i)
     def compare(a,b,path=()):
@@ -623,7 +642,10 @@ def verify(oldr, newr, olde, newe, selected):
         for name in table[str(i)]:
             if isinstance(name,str):
                 gap = nearest(p,stop_position(name))[2]
-                assert gap<=.3,('waypoint city off path',i,name,gap)
+                # Coastal controls denote a belt outside the port, not a city
+                # landfall. Broader fillets may move these controls by <1 unit.
+                limit=1 if i in COASTAL and name.endswith('近岸') else .3
+                assert gap<=limit,('waypoint city off path',i,name,gap)
                 city_gaps[f'{i}:{name}'] = round(gap,3)
     for e,ref in zip(newe,olde):
         for (name,si,ai),route in RETREATS.items():
@@ -657,14 +679,14 @@ def verify(oldr, newr, olde, newe, selected):
             assert np.count_nonzero(cross&(q[0]<x))%2,('Korea route leaves displayed land',q)
         land_samples = len(samples)
     sea_samples = {}
-    for i in selected & {46,70}:
+    for i in selected & {46,70,*COASTAL}:
         samples = resample(points(newr[i][4]),.025)
         assert not any(on_land(q) for q in samples),('sea route crosses displayed land',i)
         sea_samples[str(i)] = len(samples)
     return {'reference_events_equal_except_m_and_r':True,'routes_changed':changed,
             'sea_samples':sea_samples,
             'route14_land_samples':land_samples, 'return_separations':separations,
-            'endpoints_preserved':True,'fractions_continuous_monotone':True,
+            'endpoints_preserved_except_coastal_registration':True,'fractions_continuous_monotone':True,
             'waypoint_city_gaps':city_gaps,'retreats_match_reversed_routes':True,
             'nanhan_valley_separation':round(nanhan_separation(points(newr[3][4])),3)}
 
@@ -902,22 +924,25 @@ def offshore(q):
     return min(candidates,key=lambda v:v[0])[1]
 
 
-def sea_trace(a,b):
+def sea_trace(a,b,coastal=False,coastal_margin=3.5):
     """8-neighbour sea graph masked by every displayed mainland/island polygon."""
     from rasterio.features import rasterize
     from affine import Affine
-    step = .05
-    lo = np.floor((np.minimum(a,b)-7)/step)*step
-    hi = np.maximum(a,b)+7
+    step = .1 if coastal else .05
+    pad=12 if coastal else 7
+    lo = np.floor((np.minimum(a,b)-pad)/step)*step
+    hi = np.maximum(a,b)+pad
     w,h = np.ceil((hi-lo)/step).astype(int)+1
     shapes = [({'type':'Polygon','coordinates':[p.tolist()]},1) for p in land_polygons()]
     land = rasterize(shapes,out_shape=(h,w),transform=Affine(step,0,lo[0]-step/2,0,step,lo[1]-step/2),fill=0,dtype='uint8').astype(bool)
     shore = distance_transform_edt(~land)*step
     # Leave a visible margin offshore; prefer the coastal belt over open ocean.
-    cost = 1+200*np.maximum(0,.7-shore)**2+ .025*np.maximum(0,shore-3)**2
+    cost = (1+20*np.maximum(0,coastal_margin-.7-shore)**2+
+            .8*np.maximum(0,shore-coastal_margin-.5)**2 if coastal
+            else 1+200*np.maximum(0,.7-shore)**2+.025*np.maximum(0,shore-3)**2)
     yy,xx = np.mgrid[:h,:w]
     near_endpoint = (np.hypot(lo[0]+xx*step-a[0],lo[1]+yy*step-a[1])<.6) | (np.hypot(lo[0]+xx*step-b[0],lo[1]+yy*step-b[1])<.6)
-    blocked = land | ((shore<.4)&~near_endpoint)
+    blocked = land if coastal else land | ((shore<.4)&~near_endpoint)
     cost[blocked] = np.inf
     ids = np.arange(h*w,dtype=np.int32).reshape(h,w)
     rows,cols,weights = [],[],[]
@@ -932,20 +957,110 @@ def sea_trace(a,b):
     rr,cc,ww=map(np.concatenate,(rows,cols,weights))
     graph=coo_matrix((np.r_[ww,ww],(np.r_[rr,cc],np.r_[cc,rr])),shape=(h*w,)*2).tocsr()
     ai,bi=[np.rint((q-lo)/step).astype(int) for q in (a,b)]
+    if coastal:
+        # A rounded raster cell may lie inland even when its precise coast
+        # endpoint is at sea. Find a visible, unobstructed sub-cell connector.
+        for cell,q in ((ai,a),(bi,b)):
+            options=[]
+            for dy in range(-4,5):
+                for dx in range(-4,5):
+                    x,y=cell+[dx,dy]
+                    v=lo+np.array([x,y])*step
+                    if not blocked[y,x] and not any(on_land(t) for t in resample(np.array([q,v]),.005)):
+                        options.append((float(np.linalg.norm(v-q)),x,y))
+            if not options:
+                raise ValueError(f'No sea connector at {q}')
+            _,cell[0],cell[1]=min(options)
     source,target=ai[1]*w+ai[0],bi[1]*w+bi[0]
     assert not land[ai[1],ai[0]] and not land[bi[1],bi[0]],('sea control inland',a,b)
     _,prev=dijkstra(graph,indices=source,return_predecessors=True)
     walk=[target]
     while walk[-1]!=source:
         n=int(prev[walk[-1]])
-        if n<0:raise ValueError('Disconnected sea path')
+        if n<0:raise ValueError(f'Disconnected sea path: {a} → {b}')
         walk.append(n)
     walk=np.array(walk[::-1]);p=lo+np.c_[walk%w,walk//w]*step
+    if coastal:
+        p=np.vstack((a,p,b))
+        return p[np.r_[True,np.any(np.diff(p,axis=0)!=0,axis=1)]]
     p[0],p[-1]=a,b
     return p
 
 
+def coastal_endpoint(q,force=False):
+    """Nearest displayed coast; 0.002 outward only prevents SVG rounding inland."""
+    if not force and not on_land(q):
+        return q.copy()
+    _,hit,gap=min((nearest(np.vstack((p,p[:1])),q) for p in land_polygons()),key=lambda v:v[2])
+    assert force or gap<=10,('endpoint exceeds authorized move',q,gap)
+    candidates=[hit+.002*np.array([np.cos(t),np.sin(t)]) for t in np.linspace(0,2*np.pi,65)[:-1]]
+    candidates=[v for v in candidates if not on_land(v) and not on_land(np.round(v,3))]
+    return min(candidates,key=lambda v:float(np.linalg.norm(v-q)))
+
+
+def coastal_offset(q,distance):
+    """Approximate port-side sea control, distinct from a historical anchorage."""
+    _,hit,_=min((nearest(np.vstack((p,p[:1])),q) for p in land_polygons()),key=lambda v:v[2])
+    choices=[hit+r*np.array([np.cos(t),np.sin(t)]) for r in (distance,distance+2,distance+5,distance+9)
+             for t in np.linspace(0,2*np.pi,97)[:-1]]
+    choices=sorted(choices,key=lambda v:float(np.linalg.norm(v-q)))
+    for v in choices:
+        if not on_land(v) and 2.5<=coast_distance(v)<=distance+.05:
+            return v
+    raise ValueError(f'No coastal belt near {q}')
+
+
+def coast_distance(q):
+    # Keep disconnected polygon edges separate; joining the paths would invent
+    # shorelines across open water between islands.
+    a=np.vstack(land_polygons())
+    b=np.vstack([np.roll(p,-1,axis=0) for p in land_polygons()])
+    d=b-a
+    u=np.clip(np.sum((q-a)*d,axis=1)/np.maximum(np.sum(d*d,axis=1),1e-12),0,1)
+    return float(np.linalg.norm(a+u[:,None]*d-q,axis=1).min())
+
+
+def coastal_route_ends(i,original):
+    ends=[coastal_endpoint(original[0]),coastal_endpoint(original[-1])]
+    if i==75 and on_land(original[-1]):
+        # The last step names Gaoting, so register the coast against its
+        # existing plotted position rather than the old route's arbitrary tail.
+        ends[1]=coastal_endpoint(stop_position('皋亭山（会师约略）'),force=True)
+        assert np.linalg.norm(ends[1]-original[-1])<=10
+    return ends
+
+
+def trace_coastal(i,original,values,cities,proj):
+    start,end=coastal_route_ends(i,original)
+    cp=[start,*controls(values,cities,proj),end]
+    cp=np.array([q for k,q in enumerate(cp) if not k or np.linalg.norm(q-cp[k-1])>.02])
+    turn=values.index('碙洲方向近岸')+1 if i==76 else len(cp)
+    parts=[sea_trace(a,b,coastal=True,coastal_margin=5.5 if k>=turn else 3.5)
+           for k,(a,b) in enumerate(zip(cp,cp[1:]))]
+    curves=[chaikin(chaikin(simplify(p,.18))) for p in parts]
+    # Smooth the joined corridor as one curve; semantic shoreline stops split
+    # it so the declared arrival cannot drift inland or disappear in smoothing.
+    hard=[stop_position('澉浦海岸（约略）')] if i==75 else []
+    groups=[];group=[]
+    for k,p in enumerate(curves):
+        group.append(p)
+        if k==len(curves)-1 or any(np.linalg.norm(p[-1]-q)<.01 for q in hard):
+            joined=np.vstack([v[:-1] for v in group]+[group[-1][-1:]])
+            # Coarsen before rounding the joined corridor: smoothing dense
+            # raster vertices alone leaves tiny fillets that still look square.
+            groups.append(chaikin(chaikin(simplify(joined,.45))))
+            group=[]
+    p=np.vstack([simplify(v,.025)[:-1] for v in groups]+[groups[-1][-1:]])
+    p=np.round(p,3)
+    p=p[np.r_[True,np.any(np.diff(p,axis=0)!=0,axis=1)]]
+    assert len(p)<=720,('coastal point budget',i,len(p))
+    assert not any(on_land(q) for q in resample(p,.01)),('finished coastal route crosses land',i)
+    return p,.025
+
+
 def trace_third(i,original,values,cities,proj,dem):
+    if i in COASTAL:
+        return trace_coastal(i,original,values,cities,proj)
     if i not in (46,70):
         return trace_second(i,original,values,cities,proj,dem,third=True)
     cp=[original[0],*controls(values,cities,proj),original[-1]]
@@ -977,8 +1092,8 @@ def main():
     newr, newe = load('routes'),load('events')
     table, cities, proj = load('route-waypoints'),load('cities'),Projection()
     selected = args.only or ({args.route} if args.route is not None else {int(k) for k in table})
-    if not selected <= BATCH or selected & DEFERRED_THIRD:
-        parser.error('Unsupported or deferred route indexes; see docs/路线出处.md')
+    if not selected <= BATCH:
+        parser.error('Unsupported route indexes; see docs/路线出处.md')
     dem = DEM(args.cache.resolve(),proj,allow_coarse=bool(selected & (SECOND_BATCH | THIRD_BATCH)))
     previous = baseline('dee716b','routes')
     tolerances = {}
@@ -1027,8 +1142,10 @@ def main():
                         parts.append(dem.trace(a,b,avoid))
             if i not in SECOND_BATCH | THIRD_BATCH:
                 p,tolerance = finish(parts,i)
-            p[0],p[-1] = original[0],original[-1]
-            newr[i][4],newr[i][5] = svg(p),label(p,cities)
+            if i not in COASTAL:
+                p[0],p[-1] = original[0],original[-1]
+            path = ('M'+'L'.join(f'{x:.3f},{y:.3f}' for x,y in p)) if i in COASTAL else svg(p)
+            newr[i][4],newr[i][5] = path,label(p,cities)
             tolerances[str(i)] = tolerance
             print(f'Traced {i}: {len(p)} points; curve tolerance {tolerance}',flush=True)
         newe,stops = remap(olde,oldr,newr,selected,newe)
