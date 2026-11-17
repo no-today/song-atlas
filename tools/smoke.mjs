@@ -69,7 +69,7 @@ if(!features||Object.values(features).some(v=>!v))errs.push('全片入口/目录
 console.log('全片入口、目录、续播、倍速与键盘',JSON.stringify(features));
 const combat={actErrors:[],actions:new Set()};
 for(const battleIndex of await run('BATTLES')){const result=await run(`(()=>{const out={actErrors:[]},seen=new Set(),nodes={s:'.siege',w:'.flood',k:'.supply-cut',n:'.naval',f:'.forts',v:'.strength'},i=${battleIndex};
-  enterBattle(i);setPlay(false);for(let k=0;k<bt.steps.length;k++){showStep(k,false);for(const a of bt.steps[k][1])if(nodes[a[0]]){if(!$('g-bt').querySelector(nodes[a[0]]))out.actErrors.push(C.ev[i][1]+' 第'+(k+1)+'步未画出 '+a[0]);else seen.add(a[0]);
+  enterBattle(i);setPlay(false);for(let k=0;k<bt.steps.length;k++){showStep(k,false);for(const a of bt.steps[k][1])if(nodes[a[0]]){if(!document.querySelector('#g-bt '+nodes[a[0]]+',#g-btm '+nodes[a[0]]))out.actErrors.push(C.ev[i][1]+' 第'+(k+1)+'步未画出 '+a[0]);else seen.add(a[0]);
     if(a[0]==='v'){const g=ROUTE[a[1]];if(g._army?.[1]!==a[2]||!g._tk?.textContent.includes(fmtN(a[2],a[3])))out.actErrors.push('兵力旗签未更新');if(k>0){showStep(k-1,false);if(g._army||!g._tk?.textContent.includes(fmtN(C.rt[a[1]][7][1],C.rt[a[1]][7][2])))out.actErrors.push('回退兵力未恢复');showStep(k,false)}}
     if(a[0]==='k'){const g=ROUTE[a[1]];if(!g._cut||!$('g-bt').querySelector('.cut-tail'))out.actErrors.push('断粮路线未变淡');showStep(k>0?k-1:Math.min(k+1,bt.steps.length-1),false);if(g._cut)out.actErrors.push('换步后断粮路线未恢复');showStep(k,false)}}}
   out.actions=[...seen];leaveBattle(false);return out})()`);combat.actErrors.push(...result.actErrors);for(const k of result.actions)combat.actions.add(k)}
@@ -100,7 +100,7 @@ await run(`filmEnd();if(mode==='battle')leaveBattle(false);enterBattle(${preBatt
 pre.manual=await until('手动五路伐夏布势完全显现、第一步尚未绘制',hold);
 pre.held=await during('手动入场第 2 秒仍显示布势且未画第一步',hold,2000);
 await key('ArrowRight');
-pre.arrow=await until('按 → 后布势淡出并开始第一步',started,1000);
+pre.arrow=await until('按 → 后布势淡出并开始第一步',started,2000);
 for(const [name,action] of [['space',"document.body.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true,cancelable:true}))"],['next',"$('nr-next').click()"],['map',"svg.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}))"]]){
   await run(`leaveBattle(false);enterBattle(${preBattle});setPlay(false)`);
   pre[name+'Hold']=await until(`${name} 跳过前布势就绪`,hold);

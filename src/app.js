@@ -211,7 +211,7 @@ function battlePre(e){if(!e[6]?.pre||bt.preNode)return;const root=el('g',{class:
   for(const [x,y,side,text] of e[6].pre){const g=pt(root,x,y),col=RCOL[side];el('path',{d:'M0,4V-13L10,-10L0,-7',fill:col,stroke:col,'stroke-width':1.5},g);actNote(g,x,y,text,side);if(!REDUCED)bt.anims.push(g.animate([{opacity:0},{opacity:1}],{duration:220,fill:'backwards'}))}scheduleCull()}
 function fadePre(){const n=bt.preNode;if(!n)return;bt.preNode=null;if(REDUCED)return n.remove();const a=n.animate([{opacity:1},{opacity:0}],{duration:350,fill:'forwards'});bt.anims.push(a);a.onfinish=()=>n.remove()}
 function doAct(a,animate,t1,cur){ // 返回该动作结束的时间（毫秒），t1 为行军结束时刻
-  const k=a[0],gb=$('g-bt'),sc=base*view.k;if('swknfv'.includes(k))animate=animate&&cur;
+  const k=a[0],gb=$('g-bt'),lo=$('g-btm'),sc=base*view.k;if('swknfv'.includes(k))animate=animate&&cur;
   if(k==='m'){const g=ROUTE[a[1]];g._cur=cur;if(!g._L)g._L=g._ln.getTotalLength();const dur=animate?Math.max(650,Math.min(2600,g._L*(a[3]-a[2])*sc*6)):0;
     if(animate){const tok=bt.tok;routeFrac(g,a[2]);tween(dur,0,u=>routeFrac(g,a[2]+(a[3]-a[2])*u),tok)}else routeFrac(g,a[3]);return dur}
   if(k==='a'||k==='r'){const col=RCOL[a[2]],p=el('path',{class:'adhoc'+(k==='r'?' ret':''),d:a[1],stroke:col},gb);
@@ -234,34 +234,34 @@ function doAct(a,animate,t1,cur){ // 返回该动作结束的时间（毫秒）�
     pop(inner,t1+350,animate);return t1+850}
   if(k==='z'){const col=RCOL[a[2]],p=el('path',{d:HIST.shapes[a[1]],fill:col,'fill-opacity':.3,stroke:DARK[a[2]]},$('g-zone'));fade(p,t1+500,animate);
     if(cur){const g=pt(gb,a[4],a[5]);el('text',{class:'zl',y:6,fill:DARK[a[2]]},g).textContent=a[3];fade(g,t1+900,animate)}return t1+1600}
-  if(k==='s'){const g=pt(gb,a[1],a[2]),col=RCOL[a[3]],r=a[4]||5,inner=el('g',{class:'siege'},g),R=r*sc/(Math.pow(view.k,.2)||1);
+  if(k==='s'){const g=pt(lo,a[1],a[2]),col=RCOL[a[3]],r=a[4]||5,inner=el('g',{class:'siege'},g),R=r*2;
     const ring=el('circle',{r:R,fill:'none',stroke:col},inner),tick=el('g',{stroke:col},inner);
-    for(let i=0;i<8;i++){const q=i*Math.PI/4,c=Math.cos(q),s=Math.sin(q);el('path',{d:`M${(c*(R+7)).toFixed(1)},${(s*(R+7)).toFixed(1)}L${(c*(R+1.5)).toFixed(1)},${(s*(R+1.5)).toFixed(1)}`},tick)}
-    if(a[5]&&cur)actNote(g,a[1],a[2],a[5],a[3],-R-11);
+    for(let i=0;i<8;i++){const q=i*Math.PI/4,c=Math.cos(q),s=Math.sin(q);el('path',{d:`M${(c*(R+4.5)).toFixed(1)},${(s*(R+4.5)).toFixed(1)}L${(c*(R+1.5)).toFixed(1)},${(s*(R+1.5)).toFixed(1)}`},tick)}
+    if(a[5]&&cur)actNote(pt(gb,a[1],a[2]),a[1],a[2],a[5],a[3],-R-9);
     if(animate&&!REDUCED&&inner.animate){bt.anims.push(inner.animate([{opacity:0,transform:'scale(1.9)'},{opacity:1,transform:'scale(1)'}],{duration:1200,delay:t1,easing:'cubic-bezier(.3,.6,.3,1)',fill:'both'}));
       bt.anims.push(ring.animate([{strokeDashoffset:0},{strokeDashoffset:-24}],{duration:1600,delay:t1+1200,iterations:Infinity}))}
     return t1+1300}
-  if(k==='w'){const g=pt(gb,a[1],a[2]),R=a[4]*sc/Math.pow(view.k,.2),p=[];
+  if(k==='w'){const g=pt(lo,a[1],a[2]),R=a[4]*sc/Math.pow(view.k,.2),p=[];
     for(let i=0;i<24;i++){const q=i*Math.PI/12,r=R*(1+.16*Math.sin(i*2.3)+.12*Math.cos(i*1.7));p.push(`${i?'L':'M'}${(Math.cos(q)*r).toFixed(1)},${(Math.sin(q)*r*.7).toFixed(1)}`)}
     const water=el('g',{class:'flood'},g);el('path',{d:p.join('')+'Z'},water);el('path',{class:'ripples',d:`M${-R*.6},-3q${R*.15},-6 ${R*.3},0t${R*.3},0t${R*.3},0M${-R*.4},6q${R*.15},-6 ${R*.3},0t${R*.3},0`},water);
-    if(cur)actNote(g,a[1],a[2],a[5],a[3],-R*.7-12);
+    if(cur)actNote(pt(gb,a[1],a[2]),a[1],a[2],a[5],a[3],-R*.7-12);
     if(animate&&!REDUCED)bt.anims.push(water.animate([{opacity:0,transform:'scale(.12)'},{opacity:1,transform:'scale(1)'}],{duration:1200,delay:t1,fill:'backwards',easing:'ease-out'}));return t1+1200}
   if(k==='k'){const r=ROUTE[a[1]],L=r._L||(r._L=r._ln.getTotalLength()),p=r._ln.getPointAtLength(L*a[2]),g=pt(gb,p.x,p.y),mark=el('g',{class:'supply-cut',stroke:RCOL[a[3]]},g);
     el('path',{d:'M-9,3L-3,-6M-3,6L3,-3M5,-3L11,3M11,-3L5,3'},mark);if(cur)actNote(g,p.x,p.y,a[4],a[3]);pop(mark,t1,animate);
     if(cur){const id=`cut-${bt.tok}-${a[1]}`,defs=el('defs',{},gb),mask=el('mask',{id,maskUnits:'userSpaceOnUse',x:-100,y:-100,width:W+200,height:H+200},defs),mp=el('path',{d:C.rt[a[1]][4],fill:'none',stroke:'white','stroke-width':20},mask);
       el('path',{class:'cut-tail',d:C.rt[a[1]][4],stroke:RCOL[r._side],mask:`url(#${id})`},gb);r._cut={f:a[2],mask:mp};routeFrac(r,r._f||0)}return t1+500}
-  if(k==='n'){const g=pt(gb,a[1],a[2]),navy=el('g',{class:'naval'},g);
+  if(k==='n'){const g=pt(lo,a[1],a[2]),navy=el('g',{class:'naval'},g);
     el('path',{class:'ripples',d:'M-25,9q6,-5 12,0t12,0t12,0t12,0M-18,16q6,-5 12,0t12,0t12,0'},navy);
     for(let i=0;i<3;i++){const boat=el('g',{transform:`translate(${(i-1)*15},${i===1?-7:2})`},navy);el('path',{class:'boat',d:'M-9,0L-5,5H5L9,0ZM0,0V-11L6,-3H0',fill:RCOL[a[3]],stroke:DARK[a[3]]},boat);
       if(animate&&!REDUCED)bt.anims.push(boat.animate([{opacity:0,transform:`translate(${(i-1)*27}px,${i===1?-16:7}px)`},{opacity:1,transform:`translate(${(i-1)*15}px,${i===1?-7:2}px)`}],{duration:950,delay:t1+i*100,fill:'backwards',easing:'ease-out'}))}
-    if(cur)actNote(g,a[1],a[2],a[4],a[3],-30);return t1+1200}
-  if(k==='f'){a[2].forEach(([x,y],i)=>{const g=pt(gb,x,y),fort=el('g',{class:'forts',fill:RCOL[a[1]],stroke:DARK[a[1]]},g);el('path',{d:'M-8,5V-6H-5V-2H-2V-6H2V-2H5V-6H8V5ZM-2,5V0H2V5'},fort);if(cur&&i===a[2].length-1)actNote(g,x,y,a[3],a[1]);pop(fort,t1+i*150,animate)});return t1+(a[2].length-1)*150+480}
+    if(cur)actNote(pt(gb,a[1],a[2]),a[1],a[2],a[4],a[3],-30);return t1+1200}
+  if(k==='f'){a[2].forEach(([x,y],i)=>{const g=pt(lo,x,y),fort=el('g',{class:'forts',fill:RCOL[a[1]],stroke:DARK[a[1]]},g);el('path',{d:'M-8,5V-6H-5V-2H-2V-6H2V-2H5V-6H8V5ZM-2,5V0H2V5'},fort);if(cur&&i===a[2].length-1)actNote(pt(gb,x,y),x,y,a[3],a[1]);pop(fort,t1+i*150,animate)});return t1+(a[2].length-1)*150+480}
   if(k==='v'){const r=ROUTE[a[1]],a0=C.rt[a[1]][7];if(!a0)return 0;r._army=[a0[0],a[2],a[3],a0[3]];if(r._tk)r._tk.remove();r._tk=undefined;routeFrac(r,r._f||0);const p=r._ln.getPointAtLength((r._L||0)*(r._f||0)),g=pt(gb,p.x,p.y,'strength');
     if(cur){actNote(g,p.x,p.y,a[4],r._side);if(animate&&!REDUCED)bt.anims.push(r._tk.animate([{filter:'brightness(1.6)'},{filter:'brightness(1)'}],{duration:1000,delay:t1,fill:'backwards'}))}return t1+1000}
   return 0}
 function preHold(){return new Promise(resolve=>{const finish=skip=>{if(bt.hold!==h)return;clearTimeout(h.timer);wrap.removeEventListener('click',click,true);if(bt.hold===h)bt.hold=null;if(skip)fadePre();resolve(!!skip)},click=e=>{if(moved>4||e.target.closest(uiControls+',#opening'))return;e.preventDefault();e.stopImmediatePropagation();finish(true)},h={finish,timer:setTimeout(()=>finish(false),3000)};bt.hold=h;capSet('战前布势');uiShow();wrap.addEventListener('click',click,true)})}
 function skipPre(){if(!bt.hold)return false;bt.hold.finish(true);return true}
-function clearStage(){bt.tok++;bt.hold?.finish(false);bt.pre=null;bt.preNode=null;clearTimeout(bt.timer);bt.anims.forEach(a=>a.cancel());bt.anims=[];bt.stack={};for(const g of ROUTE){if(g._cut){g._cut=null;routeFrac(g,g._f||0)}if(g._army){g._army=null;if(g._tk)g._tk.remove();g._tk=undefined}}$('g-bt').textContent='';$('g-zone').textContent=''}
+function clearStage(){bt.tok++;bt.hold?.finish(false);bt.pre=null;bt.preNode=null;clearTimeout(bt.timer);bt.anims.forEach(a=>a.cancel());bt.anims=[];bt.stack={};for(const g of ROUTE){if(g._cut){g._cut=null;routeFrac(g,g._f||0)}if(g._army){g._army=null;if(g._tk)g._tk.remove();g._tk=undefined}}$('g-bt').textContent='';$('g-btm').textContent='';$('g-zone').textContent=''}
 function showStep(k,animate){k=Math.max(0,Math.min(k,bt.steps.length-1));const pre=!film.on||C.ev[battle][6].pre?bt.pre:null,preNode=k===0?bt.preNode:null;if(preNode)preNode.remove();clearStage();if(preNode){$('g-bt').append(preNode);bt.preNode=preNode}narrStop();bt.si=k;const tok=bt.tok,e=C.ev[battle];
   let b=null;for(let s=Math.max(0,k-1);s<=k;s++){const q=bt.steps[s][2];if(q)b=b?[Math.min(b[0],q[0]),Math.min(b[1],q[1]),Math.max(b[2],q[2]),Math.max(b[3],q[3])]:q.slice()}
   for(const g of ROUTE)if(g._ev===e[1]){g._ln.removeAttribute('marker-end');g._cur=false;routeFrac(g,0)}
