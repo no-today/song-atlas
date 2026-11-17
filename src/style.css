@@ -228,8 +228,8 @@ svg.m-battle .rt g.foc .ah{display:block}
 #g-bt .cl-l{font-size:11px;font-weight:600;fill:#2b2118;stroke-width:2.6px}
 #g-bt .tk{font-size:11px;font-weight:600;stroke-width:2.4px}
 /* 无主之地：去饱和再压一层纸色，让有主之地成为主角 */
-.free-gray{fill:#8a8478;mix-blend-mode:saturation;opacity:.8;pointer-events:none}
-.free-wash{fill:#efe6d0;opacity:.32;pointer-events:none}
+.free-gray{fill:#8a8478;mix-blend-mode:saturation;opacity:1;pointer-events:none}
+.free-wash{fill:#efe6d0;opacity:.75;pointer-events:none}
 #g-bt .siege circle{stroke-width:2.2px;stroke-dasharray:5 3;opacity:.9}
 #g-bt .siege g path{stroke-width:1.8px;stroke-linecap:round}
 #g-bt .sg-l{font-size:11.5px;font-weight:700;text-anchor:middle;stroke:#efe4c8;stroke-width:3px;paint-order:stroke}
