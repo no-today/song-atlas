@@ -81,7 +81,7 @@ for _colour in PALETTES['B'][:3]:
     _muted = colorsys.hsv_to_rgb(_h, _s*2/3, _v)
     _paper = (238/255, 229/255, 208/255)
     _low.append('#'+''.join(f'{round(255*(.75*a+.25*b)):02x}' for a, b in zip(_muted, _paper)))
-PALETTES['D'] = _low + PALETTES['B'][3:]
+PALETTES['D'] = _low + ['#ddd3b0', '#c9b58f', '#b6a07f', '#c4ad88', '#e2d8c6']
 D = {'strength': 1.05, 'local_sigma_m': 2400, 'gain_max': 4.0,
      'std_floor_m': 5, 'std_gate_m': 25, 'std_decay_m': 85,
      'relative_amount': .08, 'relative_floor_m': 18,
