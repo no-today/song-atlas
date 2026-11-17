@@ -34,9 +34,13 @@ const features=await run(`(async()=>{const out={},key=(k,target=document.body)=>
   const wav=new ArrayBuffer(44+32000),dv=new DataView(wav),str=(p,s)=>[...s].forEach((c,i)=>dv.setUint8(p+i,c.charCodeAt(0)));str(0,'RIFF');dv.setUint32(4,32036,true);str(8,'WAVEfmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);dv.setUint32(24,8000,true);dv.setUint32(28,16000,true);dv.setUint16(32,2,true);dv.setUint16(34,16,true);str(36,'data');dv.setUint32(40,32000,true);
   const url=URL.createObjectURL(new Blob([wav],{type:'audio/wav'}));narrate('倍速检查',url,600);await wait(100);const initial=filmRate;out.rate=true;for(let n=0;n<4;n++){$('nr-rate').click();out.rate&&=AU.playbackRate===filmRate&&JSON.parse(localStorage.getItem('song-atlas.rate'))===filmRate}out.rate&&=filmRate===initial;narrStop();URL.revokeObjectURL(url);return out})()`);
 console.log('开场、目录与音频倍速检查完成');
-Object.assign(features,await run(`(async()=>{const out={},initial=filmRate,key=(k,target=document.body)=>{const e=new KeyboardEvent('keydown',{key:k,bubbles:true,cancelable:true});target.dispatchEvent(e);return e.defaultPrevented};
-  $('nr-voice').click();out.voiceToggle=!VOICE.on&&$('nr-voice').getAttribute('aria-pressed')==='false';filmRate=1.5;const start=performance.now();let timedDone=false;const timed=narrate('计时',null,600).done.then(()=>timedDone=true);await Promise.race([timed,wait(2000)]);out.timing=timedDone&&performance.now()-start>=350&&performance.now()-start<850;filmRate=initial;$('nr-voice').click();out.voiceToggle&&=VOICE.on&&$('nr-voice').getAttribute('aria-pressed')==='true';
-  const tail=C.chapters[0].i+C.chapters[0].n-1;progress.seen=[];filmShow(tail);out.skip=!progress.seen.length;film.playing=true;filmSay(0);AU.dispatchEvent(new Event('ended'));await wait(20);out.seen=progress.seen.includes(0)&&JSON.parse(localStorage.getItem('song-atlas.film')).seen.includes(0);filmPlay(false);
+Object.assign(features,await run(`(async()=>{const out={},initial=filmRate;
+  $('nr-voice').click();out.voiceToggle=!VOICE.on&&$('nr-voice').getAttribute('aria-pressed')==='false';filmRate=1.5;const start=performance.now();let timedDone=false;const timed=narrate('计时',null,600).done.then(()=>timedDone=true);await Promise.race([timed,wait(2000)]);out.timing=timedDone&&performance.now()-start>=350&&performance.now()-start<850;filmRate=initial;$('nr-voice').click();out.voiceToggle&&=VOICE.on&&$('nr-voice').getAttribute('aria-pressed')==='true';return out})()`));
+console.log('配音开关与静音计时检查完成');
+Object.assign(features,await run(`(async()=>{const out={};
+  const tail=C.chapters[0].i+C.chapters[0].n-1;progress.seen=[];filmShow(tail);out.skip=!progress.seen.length;film.playing=true;filmSay(0);AU.dispatchEvent(new Event('ended'));await wait(20);out.seen=progress.seen.includes(0)&&JSON.parse(localStorage.getItem('song-atlas.film')).seen.includes(0);filmPlay(false);return out})()`));
+console.log('章节观看进度检查完成');
+Object.assign(features,await run(`(async()=>{const out={},key=(k,target=document.body)=>{const e=new KeyboardEvent('keydown',{key:k,bubbles:true,cancelable:true});target.dispatchEvent(e);return e.defaultPrevented};
   filmOpen(1);key(' ');out.space=film.playing;key(' ');out.space&&=!film.playing;key('ArrowRight');out.arrows=film.i===2;key('ArrowLeft');out.arrows&&=film.i===1;out.input=!key('ArrowRight',$('yr'))&&film.i===1;
   chaptersOpen();key('Escape');out.escape=$('chapters').hidden&&film.on;$('aboutbtn').click();key('Escape');out.escape&&=!$('about').classList.contains('open')&&film.on;
   filmEnd();key(' ');out.space&&=film.on&&film.playing;filmEnd();enterBattle(BATTLES[0],1);setPlay(false);key(' ');out.space&&=bt.playing;key(' ');out.space&&=!bt.playing;showStep(0,false);key('ArrowRight');out.arrows&&=bt.si===1;key('ArrowLeft');out.arrows&&=bt.si===0;key('Escape');out.escape&&=mode!=='battle';return out})()`));
@@ -81,25 +85,50 @@ if(res&&!res.f3)errs.push('#f=3 打开后应停在第 3 段、处于暂停：'+J
 if(res&&!res.bx)errs.push('战役中应自动细览、开关只切本场，退出后恢复原细览状态');
 if(res&&!res.ui)errs.push('题签应有字；播放中静止后控制条应隐去、暂停时应常驻');
 if(await run("location.protocol!=='file:'||$('g-tiles').childElementCount!==0||performance.getEntriesByType('resource').some(r=>/\\/tiles\\//.test(r.name))"))errs.push('file:// 下 g-tiles 应为空，且不应请求瓦片');
+// 桌面收起右栏：真实等过闲置计时与淡出，再用地图 pointermove 唤出。
+const immersive=await run(`(async()=>{filmEnd();if(mode==='battle')leaveBattle(false);openingClose();await wait(320);if(document.body.classList.contains('nopanel'))$('ptoggle').click();$('ptoggle').click();view.k=2;commit();await wait(3000);
+  const opacity=()=>['.tools','#ptoggle','#loc'].map(s=>getComputedStyle(document.querySelector(s)).opacity),out={hidden:opacity().every(v=>v==='0')};
+  capSet('闲置换段检查');await wait(100);out.title=getComputedStyle($('nr-cap')).opacity==='0';
+  document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));out.keyboard=wrap.classList.contains('idle');
+  wrap.dispatchEvent(new PointerEvent('pointermove',{pointerType:'mouse',bubbles:true}));await wait(450);out.shown=opacity().every(v=>v==='1');
+  $('lytoggle').click();await wait(3000);out.layers=!wrap.classList.contains('idle');$('lytoggle').click();chaptersOpen();uiHide();out.chapters=!wrap.classList.contains('idle');chaptersClose();$('aboutbtn').click();uiHide();out.about=!wrap.classList.contains('idle');$('aboutclose').click();openingShow();uiHide();out.opening=!wrap.classList.contains('idle');openingClose();$('ptoggle').click();await wait(3000);out.panel=!wrap.classList.contains('idle');return out})()`);
+if(!immersive||Object.values(immersive).some(v=>!v))errs.push('桌面沉浸/浮层/键盘失败：'+JSON.stringify(immersive));
+console.log('桌面沉浸',JSON.stringify(immersive));
+const hover={};await run("$('ptoggle').click();uiShow()");
+for(const selector of ['.tools','#ptoggle','#loc']){await run('uiShow()');const r=await run(`(()=>{const r=document.querySelector('${selector}').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);await send('Input.dispatchMouseEvent',{type:'mouseMoved',...r});await sleep(3000);hover[selector]=await run("!wrap.classList.contains('idle')")}
+await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:700,y:400});await run("$('ptoggle').click()");
+if(Object.values(hover).some(v=>!v))errs.push('鼠标停在控件上不应隐藏：'+JSON.stringify(hover));
 // 窄屏逐步核对旗签、注记外框；视口与触摸采用真实移动设备参数。
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:2,mobile:true});await send('Emulation.setTouchEmulationEnabled',{enabled:true});
 await run('openingClose();drawerSet(false)');await sleep(100);
 const touch=async(type,y)=>send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x:195,y}]});
-await touch('touchStart',765);await touch('touchEnd');
+await touch('touchStart',801);await touch('touchEnd');
 if(!await run("$('panel').classList.contains('drawer-open')"))errs.push('手机点击拖柄应展开抽屉');
-await run('drawerSet(false)');await touch('touchStart',765);await touch('touchMove',700);await touch('touchEnd');
+await run('drawerSet(false)');await touch('touchStart',801);await touch('touchMove',736);await touch('touchEnd');
 if(await run("$('panel').classList.contains('drawer-open')"))errs.push('拖动不足三分之一应回到收起状态');
-await touch('touchStart',765);await touch('touchMove',550);await touch('touchEnd');
+await touch('touchStart',801);await touch('touchMove',550);await touch('touchEnd');
 if(!await run("$('panel').classList.contains('drawer-open')"))errs.push('上拖超过三分之一应展开抽屉');
 await touch('touchStart',245);await touch('touchMove',460);await touch('touchEnd');
 if(await run("$('panel').classList.contains('drawer-open')"))errs.push('下拖超过三分之一应收起抽屉');
 const mobile=await run(`(async()=>{await wait(100);filmEnd();if(mode==='battle')leaveBattle(false);openingClose();const out={bounds:[],steps:0},i=C.ev.findIndex(e=>e[1]==='五路伐夏');
-  drawerSet(true);out.open=Math.abs($('panel').getBoundingClientRect().height-innerHeight*.72)<2;enterBattle(i,1);setPlay(true);out.closed=$('panel').getBoundingClientRect().height===88;setPlay(false);
+  drawerSet(true);out.open=Math.abs($('panel').getBoundingClientRect().height-innerHeight*.72)<2;enterBattle(i,1);setPlay(true);out.closed=$('panel').getBoundingClientRect().height===52;setPlay(false);
   for(let t=0;t<300&&flying;t++)await wait(25);await wait(50);
   for(let k=0;k<bt.steps.length;k++){showStep(k,false);await wait(50);cull();const r=wrap.getBoundingClientRect(),bottom=Math.min(r.bottom,$('panel').getBoundingClientRect().top,$('narr').getBoundingClientRect().top);
     for(const n of document.querySelectorAll('#g-rt .foc .tok,#g-bt .cl-note,#g-bt .take,#g-bt .act-note')){const b=n.getBoundingClientRect();if(!b.width||getComputedStyle(n).display==='none')continue;if(b.left<r.left+7||b.right>r.right-7||b.top<r.top+7||b.bottom>bottom-1)out.bounds.push({step:k+1,text:n.textContent,box:[b.left,b.top,b.right,b.bottom],bottom})}out.steps++}
+  showStep(4,false);setPlay(true);uiShow();await wait(3000);const r=$('panel').getBoundingClientRect();out.idle=wrap.classList.contains('idle')&&r.bottom>innerHeight&&Math.abs(r.top-(innerHeight-6))<2&&getComputedStyle($('time')).display==='none'&&getComputedStyle($('narr')).opacity==='0'&&getComputedStyle($('nr-sub')).bottom==='24px';
+  for(const n of document.querySelectorAll('#g-rt .foc .tok,#g-bt .cl-note,#g-bt .take,#g-bt .act-note')){const b=n.getBoundingClientRect();if(b.width&&getComputedStyle(n).display!=='none'&&(b.left<7||b.right>innerWidth-7||b.top<7||b.bottom>innerHeight-1))out.bounds.push({idle:true,text:n.textContent,box:[b.left,b.top,b.right,b.bottom]})}
   leaveBattle(false);return out})()`);
-if(!mobile||!mobile.open||!mobile.closed||mobile.bounds.length)errs.push('手机抽屉/五路伐夏旗签越界：'+JSON.stringify(mobile));
+// 再进入播放检查真实触屏唤出、再次点击与计时隐藏、6px 拖柄及暂停恢复。
+const mobileIdle=await run(`(async()=>{enterBattle(C.ev.findIndex(e=>e[1]==='五路伐夏'),4);setPlay(true);uiShow();await wait(3000);return wrap.classList.contains('idle')})()`);
+await touch('touchStart',140);await touch('touchEnd');await sleep(450);
+const mobileShown=await run("!wrap.classList.contains('idle')&&$('panel').getBoundingClientRect().bottom===innerHeight&&getComputedStyle($('narr')).opacity==='1'");
+await touch('touchStart',140);await touch('touchEnd');await sleep(450);
+const mobileHidden=await run("wrap.classList.contains('idle')&&$('panel').getBoundingClientRect().bottom>innerHeight");
+await touch('touchStart',841);await touch('touchEnd');await sleep(450);
+const mobileHandle=await run("!wrap.classList.contains('idle')&&$('panel').classList.contains('drawer-open')");
+const mobilePaused=await run("drawerSet(false);setPlay(false);!wrap.classList.contains('idle')&&$('panel').offsetHeight===52");
+if(!mobileIdle||!mobileShown||!mobileHidden||!mobileHandle||!mobilePaused)errs.push('手机沉浸/触屏唤出/拖柄/暂停失败：'+JSON.stringify({mobileIdle,mobileShown,mobileHidden,mobileHandle,mobilePaused}));
+if(!mobile||!mobile.open||!mobile.closed||!mobile.idle||mobile.bounds.length)errs.push('手机抽屉/五路伐夏旗签越界：'+JSON.stringify(mobile));
 console.log('手机 390×844 五路伐夏',mobile?.steps,'步，越界',mobile?.bounds.length);
 ws.close();proc.kill();
 if(errs.length){errs.forEach(e=>console.error('异常',e));process.exit(1)}console.log('冒烟通过：无脚本异常');

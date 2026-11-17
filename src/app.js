@@ -343,14 +343,14 @@ $('nr-rate').addEventListener('click',()=>{filmRate=RATES[(RATES.indexOf(filmRat
 function chaptersClose(){const was=!$('chapters').hidden;$('chapters').hidden=true;$('nr-chapters').setAttribute('aria-expanded','false');if(was)$('nr-chapters').focus();uiShow()}
 function chaptersOpen(){const rows=C.chapters.map((c,ch)=>{const pct=progress.seen.includes(ch)?100:progress.i>=c.i&&progress.i<c.i+c.n?(progress.i-c.i)/c.n*100:0;
   return `<li><button data-ch="${ch}"><span class="ch-num">${CHNUM[ch]}</span><span class="ch-name">${c.t}${pct>0&&pct<100?`<i class="ch-progress"><i style="width:${pct}%"></i></i>`:''}</span><span class="ch-duration">${Math.max(1,Math.round(c.d/60))} 分</span><span class="ch-seen">${progress.seen.includes(ch)?'✓':''}</span></button></li>`}).join('');
-  $('chapter-list').innerHTML=rows;$('chapters').hidden=false;$('nr-chapters').setAttribute('aria-expanded','true');$('chapters-close').focus()}
+  $('chapter-list').innerHTML=rows;$('chapters').hidden=false;$('nr-chapters').setAttribute('aria-expanded','true');$('chapters-close').focus();uiShow()}
 $('nr-chapters').addEventListener('click',()=>chaptersOpen());$('chapters-close').addEventListener('click',chaptersClose);
 $('chapters').addEventListener('click',e=>{const b=e.target.closest('[data-ch]');if(b){unlockAudio();chaptersClose();filmOpen(C.chapters[+b.dataset.ch].i,true)}else if(e.target===$('chapters'))chaptersClose()});
 let openingT=0;
 function openingClose(){clearTimeout(openingT);const o=$('opening');o.classList.remove('open');o.inert=true;if(REDUCED)o.hidden=true;else openingT=setTimeout(()=>o.hidden=true,300)}
 function openingShow(){clearTimeout(openingT);const o=$('opening'),i=progress.i,c=C.chapters[FILM[i]?.ch||0],mins=Math.round(C.chapters.reduce((n,c)=>n+c.d,0)/60);
   $('op-resume').hidden=i<=0;$('op-resume').textContent=`接着看 · 第 ${CHNUM[FILM[i]?.ch||0]} 章 ${c.t}`;
-  $('op-duration').textContent=`全片约 ${Math.floor(mins/60)} 小时 ${mins%60} 分 · 可用空格键播放、方向键翻段`;o.hidden=false;o.inert=false;requestAnimationFrame(()=>o.classList.add('open'))}
+  $('op-duration').textContent=`全片约 ${Math.floor(mins/60)} 小时 ${mins%60} 分 · 可用空格键播放、方向键翻段`;o.hidden=false;o.inert=false;uiShow();requestAnimationFrame(()=>o.classList.add('open'))}
 $('op-start').addEventListener('click',()=>{unlockAudio();filmOpen(0,true)});$('op-resume').addEventListener('click',()=>{unlockAudio();filmOpen(progress.i,true)});
 $('op-explore').addEventListener('click',openingClose);$('opening').addEventListener('click',e=>{if(e.target===$('opening'))openingClose()});
 function panelSync(){const b=mode==='battle';
@@ -404,16 +404,16 @@ function filmShow(i){if(!film.on||!FILM.length)return;i=Math.max(0,Math.min(i,FI
 // ---------- 手机解说抽屉 ----------
 const narrow=()=>innerWidth<=720;
 function drawerTitle(){const f=film.on&&FILM[film.i],e=mode==='battle'?C.ev[battle]:f?.e>=0?C.ev[f.e]:C.ev.filter(e=>e[0]<=year).at(-1);$('drawer-title').textContent=f&&f.e<0?'天下大势':e?.[1]||'天下大势'}
-function drawerSet(open){$('panel').classList.toggle('drawer-open',open);$('drawer-handle').setAttribute('aria-expanded',open);$('drawer-handle').setAttribute('aria-label',open?'收起解说抽屉':'展开解说抽屉');bt.layout=null;scheduleCull()}
+function drawerSet(open){$('panel').classList.toggle('drawer-open',open);$('drawer-handle').setAttribute('aria-expanded',open);$('drawer-handle').setAttribute('aria-label',open?'收起解说抽屉':'展开解说抽屉');if(open)uiShow();bt.layout=null;scheduleCull()}
 $('drawer-handle').addEventListener('click',()=>{if(!drawerDragged)drawerSet(!$('panel').classList.contains('drawer-open'))});
 let drawerDrag=null,drawerDragged=false;
 $('panel').addEventListener('pointerdown',e=>{if(!narrow()||!e.target.closest('#drawer-handle,.now')||e.target.closest('.step'))return;drawerDragged=false;drawerDrag={y:e.clientY,open:$('panel').classList.contains('drawer-open'),dy:0}});
-$('panel').addEventListener('pointermove',e=>{if(!drawerDrag)return;const d=drawerDrag;d.dy=e.clientY-d.y;drawerDragged=Math.abs(d.dy)>5;if(drawerDragged)$('panel').setPointerCapture(e.pointerId);const span=innerHeight*.72-88,travel=d.open?Math.max(0,Math.min(span,d.dy)):Math.max(-span,Math.min(0,d.dy));$('panel').style.height=((d.open?innerHeight*.72:88)-travel)+'px'});
-const drawerUp=e=>{if(!drawerDrag)return;const d=drawerDrag;drawerDrag=null;$('panel').style.height='';drawerSet(e.type==='pointercancel'?d.open:Math.abs(d.dy)>(innerHeight*.72-88)/3?d.dy<0:d.open)};
+$('panel').addEventListener('pointermove',e=>{if(!drawerDrag)return;const d=drawerDrag;d.dy=e.clientY-d.y;drawerDragged=Math.abs(d.dy)>5;if(drawerDragged)$('panel').setPointerCapture(e.pointerId);const span=innerHeight*.72-52,travel=d.open?Math.max(0,Math.min(span,d.dy)):Math.max(-span,Math.min(0,d.dy));$('panel').style.height=((d.open?innerHeight*.72:52)-travel)+'px'});
+const drawerUp=e=>{if(!drawerDrag)return;const d=drawerDrag;drawerDrag=null;$('panel').style.height='';drawerSet(e.type==='pointercancel'?d.open:Math.abs(d.dy)>(innerHeight*.72-52)/3?d.dy<0:d.open)};
 $('panel').addEventListener('pointerup',drawerUp);$('panel').addEventListener('pointercancel',drawerUp);
 // ---------- 图层 ----------
-$('ptoggle').addEventListener('click',()=>{const off=document.body.classList.toggle('nopanel');$('ptoggle').textContent=off?'‹ 展开右栏':'收起 ›';$('ptoggle').setAttribute('aria-expanded',!off)});
-$('lytoggle').addEventListener('click',()=>{const h=$('layers').hidden=!$('layers').hidden;$('lytoggle').setAttribute('aria-expanded',!h)});
+$('ptoggle').addEventListener('click',()=>{const off=document.body.classList.toggle('nopanel');$('ptoggle').textContent=off?'‹ 展开右栏':'收起 ›';$('ptoggle').setAttribute('aria-expanded',!off);uiShow()});
+$('lytoggle').addEventListener('click',()=>{const h=$('layers').hidden=!$('layers').hidden;$('lytoggle').setAttribute('aria-expanded',!h);uiShow()});
 [['ly-terr',['g-terr','g-pl']],['ly-nat',['g-nat']],['ly-city',['g-city']],['ly-ev',['g-ev']],['ly-rt',['g-rt']],['ly-water',['g-water']],['ly-gar',['g-gar']],['ly-circ',['g-circ']]].forEach(([id,gs])=>
   $(id).addEventListener('change',e=>gs.forEach(g=>$(g).style.display=e.target.checked?'':'none')));
 
@@ -528,18 +528,21 @@ function camPush(text){camStop();if(!camOk(SY.cur))return;const f=FILM[film.i],m
 // 题签：换段时淡入，4 秒后转淡常驻（随时看得出在哪一段，又不抢画面）
 let capT=0;
 function capSet(h){const c=$('nr-cap');if(c.innerHTML===h)return;c.innerHTML=h;c.classList.remove('dim');clearTimeout(capT);capT=setTimeout(()=>c.classList.add('dim'),4000);
-  if(!REDUCED&&c.animate)c.animate([{opacity:0},{opacity:1}],{duration:600})}
-// 控制条：播放中鼠标静止 2.5 秒（指针不在控制条上）淡出；鼠标在地图上移动、按键或暂停时出现；触屏点地图空白处切换
+  if(!wrap.classList.contains('idle')&&!REDUCED&&c.animate)c.animate([{opacity:0},{opacity:1}],{duration:600})}
+// 控件：播放中或桌面收起右栏时，静止 2.5 秒淡出；鼠标移动唤出，触屏点地图空白处切换。
 let uiT=0;
 const uiPlaying=()=>film.on?film.playing:mode==='battle'&&bt.playing;
-function uiShow(){clearTimeout(uiT);uiT=0;wrap.classList.remove('idle');if(uiPlaying())uiT=setTimeout(uiHide,2500)}
-function uiHide(){clearTimeout(uiT);uiT=0;if(!uiPlaying())return wrap.classList.remove('idle');if($('narr').matches(':hover'))return uiShow();wrap.classList.add('idle')}
-// 播放状态或界面切换时调用：暂停即显示；播放中已隐去的保持隐去，显示着的照常计时（换段不重新弹出）
-function uiSync(){if(!uiPlaying()){clearTimeout(uiT);uiT=0;wrap.classList.remove('idle')}else if(!uiT&&!wrap.classList.contains('idle'))uiT=setTimeout(uiHide,2500)}
+const uiAuto=()=>uiPlaying()||!narrow()&&document.body.classList.contains('nopanel');
+const uiControls='.tools,#ptoggle,#loc,#narr,#scale,#nr-cap';
+function uiIdle(idle){if(wrap.classList.contains('idle')===idle)return;if(idle)$('nr-cap').getAnimations().forEach(a=>a.cancel());wrap.classList.toggle('idle',idle);bt.layout=null;scheduleCull()}
+function uiShow(){clearTimeout(uiT);uiT=0;uiIdle(false);if(uiAuto())uiT=setTimeout(uiHide,2500)}
+function uiHide(){clearTimeout(uiT);uiT=0;if(!uiAuto())return uiIdle(false);if(!$('layers').hidden||!$('chapters').hidden||$('about').classList.contains('open')||!$('opening').hidden||narrow()&&$('panel').classList.contains('drawer-open')||matchMedia('(hover:hover)').matches&&document.querySelector(uiControls.split(',').map(s=>s+':hover').join(',')))return uiShow();uiIdle(true)}
+// 换段不重新弹出控件；结束播放后按右栏状态恢复。
+function uiSync(){if(!uiAuto()){clearTimeout(uiT);uiT=0;uiIdle(false)}else if(!uiT&&!wrap.classList.contains('idle'))uiT=setTimeout(uiHide,2500)}
 wrap.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')uiShow()});
-wrap.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'&&uiPlaying())uiHide()});
-wrap.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'||moved>4||$('narr').hidden||e.target.closest('#narr,.tools,#ptoggle,#loc,#opening,.evm,.ct'))return;
-  wrap.classList.contains('idle')||!uiPlaying()?uiShow():uiHide()});
+wrap.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'&&uiAuto())uiHide()});
+wrap.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'||moved>4||e.target.closest(uiControls+',#opening,.evm,.ct'))return;
+  wrap.classList.contains('idle')||!uiAuto()?uiShow():uiHide()});
 
 // ---------- 缩放与拖动：手势期间只做合成变换，停手后再重绘 ----------
 function clampView(){view.k=Math.max(1,Math.min(16,view.k));const vw=cw/(base*view.k),vh=ch/(base*view.k);
@@ -569,7 +572,7 @@ wrap.addEventListener('pointerup',up);wrap.addEventListener('pointercancel',up);
 wrap.addEventListener('click',e=>{if(moved>4){e.stopPropagation();e.preventDefault()}},true);
 $('zin').addEventListener('click',()=>zoomAt(1.5,null,null,true));$('zout').addEventListener('click',()=>zoomAt(1/1.5,null,null,true));
 $('zfit').addEventListener('click',()=>flyTo({cx:W/2,cy:H/2,k:1}));
-new ResizeObserver(commit).observe(wrap);
+new ResizeObserver(()=>{commit();uiSync()}).observe(wrap);
 
 // ---------- 标注避让（只在重绘后跑一次） ----------
 let cullT=0;function scheduleCull(){cancelAnimationFrame(cullT);cullT=requestAnimationFrame(cull)}
@@ -577,7 +580,7 @@ const CULL=[...CITY,...GAR].sort((a,b)=>a._c[4]-b._c[4]);
 // 路线上的采样点（svg 坐标与沿线比例），驻军让位用
 function routePts(g){if(!g._pts){const L=g._L||(g._L=g._ln.getTotalLength());g._pts=[];for(let i=0;i<=40;i++){const p=g._ln.getPointAtLength(L*i/40);g._pts.push([p.x,p.y,i/40])}}return g._pts}
 // 战役浮签在镜头落定后按本步终点排一次；行军帧只沿用偏移，不参与选位。
-function battleLayout(fixed,box,sc,vx,vy,ls){const notes=[...document.querySelectorAll('#g-bt .cl-note,#g-bt .take,#g-bt .act-note')],r0=wrap.getBoundingClientRect(),mobile=cw<=720,bottom=mobile?Math.min(ch-8,narrow()?$('panel').getBoundingClientRect().top-r0.top-8:ch-8,$('narr').hidden?ch-8:$('narr').getBoundingClientRect().top-r0.top-8):ch-2,key=[bt.tok,com.cx,com.cy,com.k,cw,ch,btX,notes.length,bottom].join('/');
+function battleLayout(fixed,box,sc,vx,vy,ls){const notes=[...document.querySelectorAll('#g-bt .cl-note,#g-bt .take,#g-bt .act-note')],r0=wrap.getBoundingClientRect(),mobile=cw<=720,bottom=mobile&&!wrap.classList.contains('idle')?Math.min(ch-8,narrow()?innerHeight-$('panel').offsetHeight-r0.top-8:ch-8,$('narr').hidden?ch-8:$('narr').getBoundingClientRect().top-r0.top-8):ch-2,key=[bt.tok,com.cx,com.cy,com.k,cw,ch,btX,notes.length,bottom].join('/');
   if(bt.layout?.key===key){fixed.push(...bt.layout.boxes);return}
   const occupied=fixed.slice(),placed=[],points=[],P=(x,y)=>[(x-vx)*sc,(y-vy)*sc];
   for(const g of CULL)if(g._v&&getComputedStyle(g).display!=='none')for(const n of g.children){if(n.classList.contains('fl'))continue;const b=box(n);if(b[2]-b[0]>4&&b[3]-b[1]>2)occupied.push(b)}
@@ -609,7 +612,7 @@ function cull(){const sc=base*com.k,vx=com.cx-cw/(2*sc),vy=com.cy-ch/(2*sc),ls=M
   const hits=(x0,y0,w,h,arr)=>{for(const a of arr)if(x0<a[2]&&x0+w>a[0]&&y0<a[3]&&y0+h>a[1])return true;return false};
   for(const n of document.querySelectorAll('#g-bt text,#g-ev .evm.cur text,#g-rt .rl text')){if(n.closest('.cl-note,.take,.act-note'))continue;if(n.getBoundingClientRect().width&&getComputedStyle(n).opacity!=='0')fixed.push(box(n))}
   // 压在地图上的界面（题签、方位小图、工具条、控制条、比例尺）：注记不钻到它们底下
-  for(const n of document.querySelectorAll('#nr-cap:not([hidden]),#loc.show,.tools,#narr:not([hidden]),#ptoggle,#scale'))if(n.getBoundingClientRect().width)fixed.push(box(n))
+  for(const n of wrap.classList.contains('idle')?[]:document.querySelectorAll('#nr-cap:not([hidden]),#loc.show,.tools,#narr:not([hidden]),#ptoggle,#scale'))if(n.getBoundingClientRect().width)fixed.push(box(n))
   // 战役中的行军线（已画出的部分）与临时箭头：驻军压上就让位
   const lines=[];if(bat){const P=(x,y)=>[(x-vx)*sc,(y-vy)*sc];
     for(const g of ROUTE)if(g._f>0&&g.classList.contains('foc'))for(const q of routePts(g))if(q[2]<=g._f+.02)lines.push(P(q[0],q[1]));
@@ -650,12 +653,11 @@ function cull(){const sc=base*com.k,vx=com.cx-cw/(2*sc),vy=com.cy-ch/(2*sc),ls=M
   // 4) 政权大字不让位，只在压到城邑注记时转淡
   for(const t of $('g-pl').children){if(t.dataset.id==='song'){if(t._d){t._d=false;t.classList.remove('dim')}continue}const b=box(t),d=hits(b[0],b[1],b[2]-b[0],b[3]-b[1],labs);if(t._d!==d){t._d=d;t.classList.toggle('dim',d)}}}
 
-$('aboutbtn').addEventListener('click',()=>$('about').classList.add('open'));
+$('aboutbtn').addEventListener('click',()=>{$('about').classList.add('open');uiShow()});
 $('aboutclose').addEventListener('click',()=>$('about').classList.remove('open'));
 $('about').addEventListener('click',e=>{if(e.target.id==='about')$('about').classList.remove('open')});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();if(!$('chapters').hidden)chaptersClose();else if($('about').classList.contains('open'))$('about').classList.remove('open');else if(!$('opening').hidden)openingClose();else if(film.on)filmEnd();else if(mode==='battle')leaveBattle(true);return}
   if(!$('chapters').hidden||$('about').classList.contains('open'))return;
-  if(film.on||mode==='battle')uiShow();
   if(e.key===' '&&!e.repeat&&!e.target.closest('textarea,select,[contenteditable],input:not([type=range])')){e.preventDefault();if(mode==='battle'&&!film.on)$('nr-play').click();else filmToggle();return}
   if(e.target.closest('input,textarea,select,[contenteditable]'))return;
   if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();if(film.on||mode==='battle')$(e.key==='ArrowRight'?'nr-next':'nr-prev').click();else userYear(year+(e.key==='ArrowRight'?1:-1))}});
