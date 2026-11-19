@@ -7,7 +7,16 @@
   --s1:4px; --s2:8px; --s3:12px; --s4:18px; --s5:28px;
   --f1:11px; --f2:12.5px; --f3:13.5px; --f4:15px; --f5:22px;
   --rule:1px solid rgba(185,165,124,.55); --halo:rgba(243,232,204,.8);
+  --safe-top:0px; --safe-right:0px; --safe-bottom:0px; --safe-left:0px;
+  --safe-center:calc(50% + (var(--safe-left) - var(--safe-right)) / 2);
+  --safe-width:calc(100% - var(--safe-left) - var(--safe-right));
   color-scheme:light;
+}
+@supports (top:env(safe-area-inset-top,0px)){
+  :root{
+    --safe-top:env(safe-area-inset-top,0px); --safe-right:env(safe-area-inset-right,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px); --safe-left:env(safe-area-inset-left,0px);
+  }
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
@@ -22,7 +31,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 #map{display:block;width:100%;height:100%}
 #mapwrap::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 90px rgba(92,66,28,.38)}
 
-.tools{position:absolute;left:14px;bottom:14px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;z-index:2;cursor:default}
+.tools{position:absolute;left:calc(14px + var(--safe-left));bottom:calc(14px + var(--safe-bottom));display:flex;flex-direction:column;gap:8px;align-items:flex-start;z-index:2;cursor:default}
 .layers[hidden]{display:none}
 .layers{background:rgba(236,224,196,.92);border:1px solid var(--line);padding:8px 10px;display:grid;grid-template-columns:repeat(2,auto);gap:2px 14px;font-size:12.5px}
 .layers label{display:flex;gap:5px;align-items:center;cursor:pointer;white-space:nowrap}
@@ -30,7 +39,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .zoom{display:flex;gap:6px}
 .zoom button,.ghost{background:rgba(236,224,196,.92);border:1px solid var(--ink-soft);min-width:32px;height:32px;padding:0 9px;border-radius:2px}
 .zoom button:hover,.ghost:hover{background:#f6edd6}
-.scale{position:absolute;right:14px;bottom:12px;font-size:11px;color:var(--ink-soft);text-align:center;pointer-events:none;z-index:2}
+.scale{position:absolute;right:calc(14px + var(--safe-right));bottom:calc(12px + var(--safe-bottom));font-size:11px;color:var(--ink-soft);text-align:center;pointer-events:none;z-index:2}
 .scale i{display:block;height:5px;border:1px solid var(--ink-soft);border-top:0;margin-bottom:1px}
 .sw{display:flex;align-items:center;gap:7px}
 .sw i{width:26px;height:14px;border-radius:7px;background:#b9a57c;position:relative;display:inline-block;transition:background .15s}
@@ -39,7 +48,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .sw[aria-checked="true"] i::after{left:14px}
 body.nopanel{grid-template-columns:minmax(0,1fr) 0}
 body.nopanel #panel{display:none}
-#ptoggle{position:absolute;top:14px;right:14px;z-index:2;background:rgba(236,224,196,.94);border:1px solid var(--ink-soft);border-radius:2px;height:30px;padding:0 10px;font-size:12.5px;cursor:pointer}
+#ptoggle{position:absolute;top:calc(14px + var(--safe-top));right:calc(14px + var(--safe-right));z-index:2;background:rgba(236,224,196,.94);border:1px solid var(--ink-soft);border-radius:2px;height:30px;padding:0 10px;font-size:12.5px;cursor:pointer}
 #ptoggle:hover{background:#f6edd6}
 #panel{grid-column:2;grid-row:1 / span 2;display:flex;flex-direction:column;min-height:0;background:linear-gradient(180deg,#efe4ca,#e6d7b4)}
 #panel-content{display:flex;flex-direction:column;flex:1;min-height:0}
@@ -275,8 +284,8 @@ svg.m-battle .pl{opacity:.55}
   body{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,54%) auto minmax(0,1fr)}
   body.nopanel{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto 0}
   #mapwrap{border-right:0}
-  #time{grid-row:2;border-right:0}
-  #panel{grid-column:1;grid-row:3;border-top:1px solid var(--line)}
+  #time{grid-row:2;border-right:0;padding-left:calc(14px + var(--safe-left));padding-right:calc(14px + var(--safe-right))}
+  #panel{grid-column:1;grid-row:3;border-top:1px solid var(--line);padding:0 var(--safe-right) var(--safe-bottom) var(--safe-left)}
       .layers{display:none}
   .now{padding:8px 16px 6px}.now .yr b{font-size:26px}
   .reigns span{font-size:0}
@@ -289,7 +298,7 @@ svg.m-battle .pl{opacity:.55}
 .evm.fm .ring{display:block!important;stroke-width:2.2}
 
 /* ---------- 方位小图 ---------- */
-#loc{position:absolute;top:14px;left:14px;width:168px;height:122px;z-index:2;background:rgba(179,194,186,.92);border:1px solid var(--ink-soft);border-radius:2px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .3s}
+#loc{position:absolute;top:calc(14px + var(--safe-top));left:calc(14px + var(--safe-left));width:168px;height:122px;z-index:2;background:rgba(179,194,186,.92);border:1px solid var(--ink-soft);border-radius:2px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .3s}
 #loc.show{opacity:1;pointer-events:auto}
 #loc-land{fill:#e3d6b6;stroke:#6f6450;stroke-width:1.2}
 #loc-core{fill:#b23a2a;fill-opacity:.45;stroke:#7a1d10;stroke-width:1.5}
@@ -308,18 +317,18 @@ svg:not(.m-battle) .tok{display:none}
 svg.m-battle .rt g.hastok .rl{display:none!important}
 /* ---------- 画面同步：字幕、闪标、高亮 ---------- */
 /* 电影式：字幕直接压在地图上（墨字、羊皮纸色光晕），无框；控制条居下、播放中鼠标静止自动隐去 */
-#nr-sub{position:absolute;left:50%;bottom:50px;transform:translateX(-50%);z-index:2;width:max-content;max-width:min(70%,calc(100% - 320px));font-family:var(--display);font-size:25px;line-height:1.45;text-align:center;color:var(--ink);pointer-events:none;transition:bottom .3s;
+#nr-sub{position:absolute;left:var(--safe-center);bottom:calc(50px + var(--safe-bottom));transform:translateX(-50%);z-index:2;width:max-content;max-width:min(70%,calc(var(--safe-width) - 320px));font-family:var(--display);font-size:25px;line-height:1.45;text-align:center;color:var(--ink);pointer-events:none;transition:bottom .3s;
   text-shadow:0 0 2px #f3e8cc,0 0 2px #f3e8cc,0 0 3px #f3e8cc,0 0 6px rgba(243,232,204,.95),0 0 12px rgba(243,232,204,.8),0 0 22px rgba(243,232,204,.55)}
-#mapwrap.idle #nr-sub{bottom:28px}
+#mapwrap.idle #nr-sub{bottom:calc(28px + var(--safe-bottom))}
 #nr-sub.long{font-size:22px}
 #nr-sub b{font-weight:700}
 #nr-sub .nc{color:var(--ink)}
 /* 题签：当前段的年份与标题，换段时淡入，数秒后转淡常驻 */
-#nr-cap{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:2;margin:0;max-width:calc(100% - 360px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;letter-spacing:.08em;color:var(--ink);pointer-events:none;transition:opacity 1.2s;
+#nr-cap{position:absolute;top:calc(14px + var(--safe-top));left:var(--safe-center);transform:translateX(-50%);z-index:2;margin:0;max-width:calc(var(--safe-width) - 360px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;letter-spacing:.08em;color:var(--ink);pointer-events:none;transition:opacity 1.2s;
   text-shadow:0 0 2px #f3e8cc,0 0 3px #f3e8cc,0 0 8px rgba(243,232,204,.9)}
 #nr-cap.dim{opacity:.5}
 #nr-cap .cy{color:var(--cinnabar);margin-right:8px;font-variant-numeric:tabular-nums;font-weight:700}
-#narr{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:2;cursor:default;display:flex;align-items:center;gap:2px;height:32px;padding:0 4px;background:rgba(236,224,196,.72);border:1px solid rgba(93,76,58,.35);border-radius:16px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);transition:opacity .4s}
+#narr{position:absolute;left:var(--safe-center);bottom:calc(10px + var(--safe-bottom));transform:translateX(-50%);z-index:2;cursor:default;display:flex;align-items:center;gap:2px;height:32px;padding:0 4px;background:rgba(236,224,196,.72);border:1px solid rgba(93,76,58,.35);border-radius:16px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);transition:opacity .4s}
 #narr button{white-space:nowrap;height:24px;min-width:26px;border:0;background:none;border-radius:12px;padding:0 6px;font-size:12px;line-height:1;color:var(--ink)}
 #narr button:hover{background:rgba(246,237,214,.9)}
 #narr button:disabled{opacity:.35;cursor:default;background:none}
@@ -333,16 +342,26 @@ svg.m-battle .rt g.hastok .rl{display:none!important}
 #mapwrap.idle{cursor:none}
 /* 地图区窄时控制条与左下缩放、右下比例尺同一行会相叠：整体抬到缩放按钮之上 */
 #mapwrap{container-type:inline-size}
-@container (max-width:720px){#narr{bottom:54px;max-width:calc(100% - 16px);gap:0;padding:0 3px}#narr button{padding:0 5px;min-width:24px}#narr .n{padding:0 3px;font-size:10px}#nr-sub{bottom:100px;max-width:92%}#mapwrap.idle #nr-sub{bottom:24px}#nr-cap{top:14px;left:14px;transform:none;max-width:calc(100% - 28px)}#loc{display:none}.opening-card{width:92vw;padding:28px 24px}.chapter-card{width:92vw;padding:22px}.tools{bottom:12px}#ptoggle{display:none}}
+@container (max-width:720px){
+  #narr{bottom:calc(54px + var(--safe-bottom));max-width:calc(var(--safe-width) - 16px);gap:0;padding:0 3px}
+  #narr button{padding:0 5px;min-width:24px}#narr .n{padding:0 3px;font-size:10px}
+  #nr-sub{bottom:calc(100px + var(--safe-bottom));max-width:min(92%,var(--safe-width))}
+  #mapwrap.idle #nr-sub{bottom:calc(24px + var(--safe-bottom))}
+  #nr-cap{left:calc(14px + var(--safe-left));transform:none;max-width:calc(var(--safe-width) - 28px)}
+  #loc{display:none}.opening-card{width:92vw;padding:28px 24px}.chapter-card{width:92vw;padding:22px}
+  .tools{bottom:calc(12px + var(--safe-bottom))}#ptoggle{display:none}
+}
 @container atlas (max-width:720px){
   /* 地图铺到屏底；控件为常驻抽屉留位，idle 只移动覆盖层，镜头与旗签不随高度抖动。 */
   #mapwrap{position:fixed;inset:0;border:0}
-  #narr{bottom:106px}#nr-sub{bottom:152px}.tools{bottom:64px}#scale{bottom:64px}
-  #panel,body.nopanel #panel{position:fixed;inset:auto 0 0;z-index:6;height:52px;display:flex;border-top:1px solid var(--ink);box-shadow:0 -3px 16px rgba(43,33,24,.12);overflow:hidden;transition:transform .4s}
-  #mapwrap.idle~#panel{transform:translateY(calc(100% - 6px))}
+  #narr{bottom:calc(106px + var(--safe-bottom))}#nr-sub{bottom:calc(152px + var(--safe-bottom))}
+  .tools,#scale{bottom:calc(64px + var(--safe-bottom))}
+  #panel,body.nopanel #panel{position:fixed;inset:auto 0 0;z-index:6;height:calc(52px + var(--safe-bottom));display:flex;border-top:1px solid var(--ink);box-shadow:0 -3px 16px rgba(43,33,24,.12);overflow:hidden;transition:transform .4s}
+  #mapwrap.idle~#panel{transform:translateY(calc(100% - 6px - var(--safe-bottom)))}
+  #mapwrap.idle~#panel #drawer-handle{margin-bottom:var(--safe-bottom)}
   #mapwrap.idle~#panel #drawer-handle i{transform:translateY(-6px)}
   #mapwrap.idle~#time{opacity:0;pointer-events:none}
-  #panel.drawer-open{height:72vh;padding-bottom:88px}
+  #panel.drawer-open{height:72vh;padding-bottom:calc(88px + var(--safe-bottom))}
   #drawer-handle{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:100%;height:18px;padding:0;background:none;border:0;touch-action:none}
   #drawer-handle i{width:36px;height:4px;border-radius:2px;background:#7a6a55}
   #panel .now{display:flex;align-items:center;gap:12px;flex-shrink:0;padding:0 18px 6px;height:34px;border-bottom:var(--rule);touch-action:none}
@@ -351,10 +370,10 @@ svg.m-battle .rt g.hastok .rl{display:none!important}
   #panel .snap{display:none}#panel:not(.drawer-open) #panel-content{visibility:hidden;pointer-events:none}
   #panel-content{overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
   #panel-content #evwrap,#panel-content #battlebox{overflow:visible;flex:none}#panel-content #evwrap h3{position:static}
-  #time{display:none;position:fixed;inset:auto 0 0;z-index:7;height:88px;padding:8px 18px;transition:opacity .4s}
+  #time{display:none;position:fixed;inset:auto 0 0;z-index:7;height:calc(88px + var(--safe-bottom));padding:8px calc(18px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(18px + var(--safe-left));transition:opacity .4s}
   #panel.drawer-open~#time{display:grid}#time .tnote>span{display:none}#time .tnote{justify-content:flex-end}
 }
-@media (max-width:860px){#nr-sub{max-width:92%;font-size:20px}#nr-sub.long{font-size:18px}#nr-cap{font-size:13px}}
+@media (max-width:860px){#nr-sub{max-width:min(92%,var(--safe-width));font-size:20px}#nr-sub.long{font-size:18px}#nr-cap{font-size:13px}}
 .terr path.f{transition:fill-opacity .4s}.terr path.e{transition:stroke-width .4s}.terr path.o{transition:stroke-width .35s,stroke-opacity .35s}
 .terr g.hl path.o{stroke-width:calc(2.6px*var(--s));stroke-opacity:1}
 .terr g.hl:not(.sel) path.f{fill-opacity:.46}
