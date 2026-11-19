@@ -42,7 +42,7 @@
 - `tools/relief.py`：Copernicus DEM GLO-90 / NOAA ETOPO 2022 的重采样、设色、晕渲与出图工具。
 - `tools/route-trace.py`：复用 relief 投影与缓存 DEM，平滑路线、按步骤地点计算停点比例并反向生成撤退线；`--only 下标列表 --write` 局部重算，`--verify` 核对字段边界、途经点与撤退重合，`--report 文件` 输出停点表、长度、点数和最终坡度。
 - `src/app.js` 顶部 `TILE_BASE`：瓦片地址前缀，默认 `tiles/`（相对页面），可换成 R2；仅 HTTP(S) 按提交后的视野加载，file:// 使用内嵌底图。
-- `public/`：部署时原样拷到站点根目录（robots.txt、sitemap.xml、分享预览图 og.jpg、图标 favicon.ico/icon-*.png/apple-touch-icon.png）
+- `public/`：部署时原样拷到站点根目录（manifest.webmanifest、robots.txt、sitemap.xml、分享预览图 og.jpg、图标 favicon.ico/icon-*.png/apple-touch-icon.png）
 - `tools/`：build / check / smoke / dev / fmt / derive；`geo.mjs` 有投影常数与 `city`/`border`/`ll` 查询命令
 - 地址：`#y=年`、`#b=战役名&s=步`、`#f=段`，状态变化即写回地址，可直接分享
 - `docs/`：史实核查与讲稿出处记录（`勘误*.md`、`战役出处-*.md`、`大事出处-*.md`）

@@ -1,0 +1,17 @@
+{
+  "name": "宋代疆域图",
+  "short_name": "宋代疆域图",
+  "description": "交互式历史地图：自936年后晋立国、割让燕云十六州，至1279年崖山宋亡，逐年展示宋、辽、西夏、金、蒙古等政权疆域变迁，附大事年表、战役分步演示与全片配音讲解。",
+  "lang": "zh-Hans",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#e8dcc4",
+  "theme_color": "#e8dcc4",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
