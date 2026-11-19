@@ -86,6 +86,22 @@ const res=await run(`(()=>{const out={init:[year,$('n-snap').textContent]};
   out.bx=bx0&&!bx1&&$('exptoggle').getAttribute('aria-checked')==='false'&&!svg.classList.contains('bx');
   $('exptoggle').click();userYear(1111);out.film=FILM.length;
   out.battles=BATTLES.length;out.snaps=SNAP.length;return out})()`);
+// 离线打开时，分享应复制保留当前年份的官网链接。
+const share=await run(`(()=>{
+  let copiedUrl;
+  Object.defineProperty(navigator,'share',{configurable:true,value:undefined});
+  Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async url=>{copiedUrl=url}}});
+  try {
+    $('share').click();
+    return {hash:location.hash,copiedUrl};
+  } finally {
+    delete navigator.share;
+    delete navigator.clipboard;
+  }
+})()`);
+if(share?.hash!=='#y=1111'||share.copiedUrl!=='https://song-atlas.notoday.dev/'+share.hash){
+  errs.push('分享应复制保留当前年份的官网链接：'+JSON.stringify(share));
+}
 // 画面同步：全片每段、每战每步按 0、1/3、2/3、末尾 喂读字位置再打断（不等音频）；每段单独调用。
 const feed=`const feed=s=>{for(const f of [0,1/3,2/3,1])narrPos(s,Math.floor(s.length*f));narrPos(null)}`;
 let sync=0;await run('filmOpen(0)');
