@@ -23,6 +23,7 @@ const compactPath=path=>{let x=0,y=0,line=false;const unit=10**(path.match(/\.\d
   return path.replace(/([ML])(-?[\d.]+),(-?[\d.]+)/g,(all,cmd,a,b)=>{const nx=Math.round(+a*unit),ny=Math.round(+b*unit),out=cmd==='M'?all:`${line&&nx<x?'':'l'}${n(nx-x)}${ny<y?'':','}${n(ny-y)}`;line=cmd==='L';x=nx;y=ny;return out})};
 BASE.land=compactPath(BASE.land);BASE.lakes=compactPath(BASE.lakes);BASE.rivers=BASE.rivers.map(compactPath);
 for(const h in HIST.shapes)HIST.shapes[h]=compactPath(HIST.shapes[h]);
+for(const snap of HIST.snaps)snap.fr=compactPath(snap.fr);
 const relief='data:image/jpeg;base64,'+readFileSync(join(root,'assets/relief.jpg')).toString('base64');
 const manifest=join(root,'tiles/manifest.json');
 const tm=existsSync(manifest)?JSON.parse(readFileSync(manifest,'utf8')):null;
