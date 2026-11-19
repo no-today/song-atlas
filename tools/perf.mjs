@@ -1,4 +1,6 @@
-// 手机性能矩阵。先 npm run build。每个样本新开 Chrome，七个场景串行。
+// 手机性能矩阵。先 npm run build。每个样本新开无头浏览器，场景串行。
+// WebKit：在 worktree 外安装 playwright 和 WebKit，NODE_PATH 指向该安装的 node_modules。
+// node tools/perf.mjs --engine webkit [--variants 开关,开关 | --probes 文件] [--scenes 场景,场景]
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {readFile, readdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
@@ -6,10 +8,16 @@ import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import {createRequire} from 'node:module';
 import {parseArgs} from 'node:util';
 import {setTimeout as sleep} from 'node:timers/promises';
 
-const {values} = parseArgs({options:{cpu:{type:'string',default:'4'},file:{type:'boolean'},out:{type:'string'}}});
+const {values} = parseArgs({options:{cpu:{type:'string',default:'4'},file:{type:'boolean'},out:{type:'string'},
+  engine:{type:'string',default:'chrome'},probes:{type:'string'},'trace-layout':{type:'boolean'},variants:{type:'string'},scenes:{type:'string'},gpu:{type:'string',default:'全部'},runs:{type:'string',default:'3'}}});
+const webkitMode=values.engine==='webkit';
+if(!['chrome','webkit'].includes(values.engine))throw new Error('--engine 可选 chrome、webkit');
+const runs=Number(values.runs);
+if (!Number.isSafeInteger(runs)||runs<1) throw new Error('--runs 应为正整数');
 const cpu = Number(values.cpu);
 if (!Number.isFinite(cpu) || cpu < 1) throw new Error('--cpu 应为不小于 1 的数');
 const root = fileURLToPath(new URL('../',import.meta.url));
@@ -30,6 +38,38 @@ const variants = {
   '系统字体':':root{--body:"Songti SC","STSong","SimSun",serif!important;--display:"STKaiti","KaiTi","Kaiti SC",serif!important}'
 };
 const scenes = ['首载','拖图','捏合','年份','飞行','战役','全片'];
+function select(key,all) {
+  if(values[key]===undefined)return all;
+  const names=values[key].split(',').map(s=>s.trim());
+  if(names.some(n=>!all.includes(n)))throw new Error(`--${key} 可选：${all.join(',')}`);
+  return all.filter(n=>names.includes(n));
+}
+const experiments=['分离文字层','行军跳终态','文字层contain'];
+// --probes 是工作区外的 JSON 数组 [{name,css}]，相机对照用 {name,camera:'scale'|'viewBox'}。
+const probes=values.probes?JSON.parse(await readFile(values.probes,'utf8')):[];
+for(const probe of Array.isArray(probes)?probes:[]) {
+  const css=typeof probe?.css==='string'&&probe.css.length>0;
+  const camera=['scale','viewBox'].includes(probe?.camera);
+  if(typeof probe?.name!=='string'||!probe.name||probe.name in variants||experiments.includes(probe.name)||
+    !(css&&probe.camera===undefined||camera&&probe.css===undefined))throw new Error('--probes 每项需要独立的名称以及 CSS 或相机对照');
+}
+if(!Array.isArray(probes)||new Set(probes.map(p=>p.name)).size!==probes.length)throw new Error('--probes 需要名称唯一的数组');
+if(values.probes&&(!probes.length||values.variants))throw new Error('--probes 自带交替基线，请单独指定非空列表');
+const wkScenes=['拖图','飞行','战役','全片'];
+const wkProbes=webkitMode?[
+  ...['hriv','nat','tribe','circ','rt','pl','btm','city','gar','ev','bt'].map(id=>({name:`藏${id}文字`,css:`#g-${id} text{display:none!important}`})),
+  {name:'固定字号比例',camera:'scale'}, {name:'固定视框',camera:'viewBox'},
+  {name:'藏路线',css:'#g-rt{display:none!important}'},
+  {name:'藏疆域',css:'#g-terr{display:none!important}'},
+  {name:'疆域不透明去混色',css:'#g-terr .f{fill-opacity:1!important}#g-terr .free-gray{mix-blend-mode:normal!important}'}
+]:[];
+const wkNames=[...Object.keys(variants),...wkProbes.map(p=>p.name)];
+if(webkitMode&&probes.some(p=>wkNames.includes(p.name)))throw new Error('--probes 名称与内置 WebKit 开关重复');
+const selectedVariants=probes.length?['基线',...probes.map(p=>p.name)]:webkitMode?select('variants',wkNames):values.variants===undefined?Object.keys(variants):select('variants',[...Object.keys(variants),...experiments]);
+const selectedScenes=select('scenes',webkitMode?wkScenes:scenes);
+if(webkitMode&&(values['trace-layout']||values.gpu==='禁用'||process.argv.some(a=>a==='--cpu'||a.startsWith('--cpu='))))throw new Error('WebKit 使用原生 CPU/GPU 与 rAF 指标');
+if(!['默认','禁用','全部'].includes(values.gpu))throw new Error('--gpu 可选：默认、禁用、全部');
+const gpus=values.gpu==='全部'?['默认','禁用']:[values.gpu];
 
 async function serve() {
   const server = createServer(async(req,res)=>{
@@ -116,14 +156,80 @@ function install(css) {
 // Script 是 JS 入口的墙钟时间，可能包含同步样式/布局，几列不能相加当作墙钟时间。
 const kind = new Map(Object.entries({FunctionCall:'script',EvaluateScript:'script',RunMicrotasks:'script',
   UpdateLayoutTree:'style',Layout:'layout',Paint:'paint',RasterTask:'raster'}));
-async function measure(c,action,load=false) {
-  const spans=[], marks={};
+// 在加载后的页面运行。三组互斥，每个样本都使用新配置目录。
+function injectExperiment(name) {
+  if(name==='行军跳终态') {
+    const original=doAct;
+    doAct=function(action,animate,...rest) {
+      if(action[0]!=='m'||!animate)return original(action,animate,...rest);
+      // 原操作返回动画时长，后续动作和讲解依赖这个值。仅替换这次行军的插值。
+      const originalTween=tween;
+      try {
+        tween=(_duration,_delay,draw)=>draw(1);
+        return original(action,animate,...rest);
+      } finally {tween=originalTween}
+    };
+    return;
+  }
+  const groups=['g-nat','g-tribe','g-circ','g-pl','g-city','g-gar'].map(id=>document.getElementById(id));
+  if(name==='文字层contain') {
+    for(const group of groups)group.style.contain='layout paint';
+    return;
+  }
+  const map=document.getElementById('map'),overlay=document.createElementNS(map.namespaceURI,'svg');
+  overlay.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
+  const sync=()=>{
+    for(const key of ['class','viewBox']){
+      const value=map.getAttribute(key);
+      if(overlay.getAttribute(key)!==value)overlay.setAttribute(key,value);
+    }
+    const scale=map.style.getPropertyValue('--s');
+    if(overlay.style.getPropertyValue('--s')!==scale)overlay.style.setProperty('--s',scale);
+  };
+  const pointers=groups.map(group=>getComputedStyle(group).pointerEvents);
+  map.after(overlay);sync();
+  groups.forEach((group,i)=>{group.style.pointerEvents=pointers[i];overlay.append(group)});
+  // commit 改镜头，setMode 也能单独改 class。只观察根属性，在下一帧绘制前同步。
+  new MutationObserver(sync).observe(map,{attributes:true,attributeFilter:['class','viewBox','style']});
+}
+
+function injectProbe(probe){
+  if(probe.css){const style=document.createElement('style');style.textContent=probe.css;document.head.append(style);return}
+  if(probe.camera==='scale'){
+    const frozen=getComputedStyle(svg).getPropertyValue('--s');
+    const style=document.createElement('style');style.textContent=`#map{--s:${frozen}!important}`;document.head.append(style);return;
+  }
+  const origin={...com},set=svg.setAttribute.bind(svg),originalCommit=commit,originalPreview=preview;
+  svg.setAttribute=(key,value)=>{if(key!=='viewBox')set(key,value)};
+  const transform=()=>{const sc=base*view.k;stage.style.transform=`translate(${(origin.cx-view.cx)*sc}px,${(origin.cy-view.cy)*sc}px) scale(${view.k/origin.k})`};
+  commit=(...args)=>{originalCommit(...args);transform()};preview=()=>{originalPreview();transform()};
+}
+
+function layoutSummary(events,start,end) {
+  const layouts=[];
+  for(const e of events){
+    if(e.pid!==end.pid||e.tid!==end.tid)continue;
+    const duration=(Math.min(end.ts,e.ts+e.dur)-Math.max(start,e.ts))/1000;
+    if(duration<=0)continue;
+    const data=e.args?.beginData??{},stack=data.stackTrace;
+    const frames=Array.isArray(stack)?stack:stack?.callFrames;
+    const forced=Boolean(frames?.length||(!frames&&stack));
+    layouts.push({ms:duration,forced,dirty:data.dirtyObjects??null,total:data.totalObjects??null,
+      partial:data.partialLayout??null,top:forced?(frames?.[0]?.functionName||'栈顶未具名或未解析'):'帧内'});
+  }
+  return layouts;
+}
+
+async function measure(c,action,load=false,traceLayout=false) {
+  const spans=[], marks={},layoutEvents=[];
   const listener=({detail})=>{for(const e of detail.value){
+    if(traceLayout&&e.name==='Layout'&&e.ph==='X')layoutEvents.push(e);
     if (e.name==='atlas-start' || e.name==='atlas-end') marks[e.name]=e;
     else if (kind.has(e.name) && e.ph==='X') spans.push([e.pid,e.tid,kind.get(e.name),e.ts,e.ts+e.dur]);
   }};
   c.events.addEventListener('Tracing.dataCollected',listener);
-  await c.send('Tracing.start',{categories:'-*,blink.user_timing,devtools.timeline,disabled-by-default-devtools.timeline',options:'record-until-full',transferMode:'ReportEvents'});
+  const categories='-*,blink.user_timing,devtools.timeline,disabled-by-default-devtools.timeline'+(traceLayout?',disabled-by-default-devtools.timeline.stack':'');
+  await c.send('Tracing.start',{categories,options:'record-until-full',transferMode:'ReportEvents'});
   if (!load) await c.evaluate('atlasPerf.start()');
   await action();
   const {frames,...extra}=load?await c.evaluate('atlasPerf.load'):{frames:await c.evaluate('atlasPerf.stop()')};
@@ -138,6 +244,16 @@ async function measure(c,action,load=false) {
     const key=tid+':'+k, hi=Math.min(end.ts,u), lo=Math.max(start,t,last.get(key)??0);
     if (hi>lo) {totals[k]+=(hi-lo)/1000;last.set(key,hi)}
   }
+  if(probes.length){
+    extra.layout300=0;extra.layoutMax=0;
+    for(const [pid,tid,kind,t,u] of spans){
+      if(kind!=='layout'||pid!==end.pid||tid!==end.tid)continue;
+      const ms=(Math.min(u,end.ts)-Math.max(t,start))/1000;
+      if(ms>=300)extra.layout300++;
+      extra.layoutMax=Math.max(extra.layoutMax,ms);
+    }
+  }
+  if(traceLayout)extra.layoutEvents=layoutSummary(layoutEvents,start,end);
   const gaps=frames.slice(1).map((v,i)=>v-frames[i]).sort((a,b)=>a-b);
   const quantile=p=>gaps[Math.ceil(p*gaps.length)-1]??null;
   return {frames:gaps.length,fps:gaps.length?1000*gaps.length/(frames.at(-1)-frames[0]):null,
@@ -176,40 +292,58 @@ async function sample(c,url,variant) {
   if (variant==='系统字体') {
     await c.send('Network.enable'); await c.send('Network.setBlockedURLs',{urls:['*://fonts.googleapis.com/*']});
   }
-  await c.send('Page.addScriptToEvaluateOnNewDocument',{source:`(${install})(${JSON.stringify(variants[variant])})`});
-  results.首载=await measure(c,async()=>{
+  await c.send('Page.addScriptToEvaluateOnNewDocument',{source:`(${install})(${JSON.stringify(variants[variant]||'')})`});
+  const want=s=>selectedScenes.includes(s);
+  const navigate=async()=>{
     await c.send('Page.navigate',{url}); await c.until('!!window.atlasPerf?.load',90000);
-  },true);
+  };
+  if(want('首载'))results.首载=await measure(c,navigate,true);else await navigate();
   await tap('op-explore'); await c.until("document.getElementById('opening').hidden");
   await c.evaluate('document.fonts.ready.then(()=>true)');
-  results.首载.font=await c.evaluate(`[...document.fonts].filter(f=>f.family.includes('Noto Serif SC')&&f.status==='loaded').length`);
-  results.拖图=await measure(c,()=>swipe(3008,t=>[[195+100*Math.sin(2*Math.PI*t),370+40*Math.sin(4*Math.PI*t)]]));
-  results.捏合=await measure(c,()=>swipe(1600,t=>{const d=36+98*Math.sin(Math.PI*t);return [[195-d,370],[195+d,370]]}));
-  await tap('drawer-handle'); await c.until("document.getElementById('yr').offsetWidth>0");
-  const r=await rect('yr'), pt=t=>[[r.x+2+(r.width-4)*t,r.y+r.height/2]];
-  await swipe(160,t=>pt(1-t)); await c.until('year===936');
-  results.年份=await measure(c,async()=>{await swipe(3008,pt);await c.until('year===1279')});
-  await tap('drawer-handle');
+  const probe=probes.find(p=>p.name===variant);
+  if(probe){
+    await c.evaluate(`(${injectProbe})(${JSON.stringify(probe)})`);
+    await c.evaluate('document.body.getBoundingClientRect();document.fonts.ready.then(()=>true)');
+  }
+  if(experiments.includes(variant))await c.evaluate(`(${injectExperiment})(${JSON.stringify(variant)})`);
+  if(want('首载'))results.首载.font=await c.evaluate(`[...document.fonts].filter(f=>f.family.includes('Noto Serif SC')&&f.status==='loaded').length`);
+  if(want('拖图'))results.拖图=await measure(c,()=>swipe(3008,t=>[[195+100*Math.sin(2*Math.PI*t),370+40*Math.sin(4*Math.PI*t)]]));
+  if(want('捏合'))results.捏合=await measure(c,()=>swipe(1600,t=>{const d=36+98*Math.sin(Math.PI*t);return [[195-d,370],[195+d,370]]}));
+  if(want('年份')){
+    await tap('drawer-handle'); await c.until("document.getElementById('yr').offsetWidth>0");
+    const r=await rect('yr'), pt=t=>[[r.x+2+(r.width-4)*t,r.y+r.height/2]];
+    await swipe(160,t=>pt(1-t)); await c.until('year===936');
+    results.年份=await measure(c,async()=>{await swipe(3008,pt);await c.until('year===1279')});
+    await tap('drawer-handle');
+  }
+  if(!['飞行','战役','全片'].some(want))return results;
   // 暂停的全片分享入口提供配音和倍速按钮。先设好静音、1.5×，随后各场自然计时。
   await hash('f=1');await c.until('film.on && !flying');await tap('nr-voice');await tap('nr-rate');await tap('nr-rate');
   await c.until('!VOICE.on && filmRate===1.5');await tap('nr-exit');
   const battle=await c.evaluate('C.ev.filter(e=>e[6]).sort((a,b)=>b[6].steps.length-a[6].steps.length)[0][1]');
   const enter=()=>hash('b='+encodeURIComponent(battle)+'&s=0');
-  await tap('zin');
-  results.飞行=await measure(c,async()=>{
-    await tap('zfit');await c.until('!flying && view.k===1');await enter();
-    // 两段飞行之间有停留；第一步开始讲解时，入场的两个镜头均已提交。
-    await c.until("mode==='battle' && bt.playing && bt.si===0 && narrCur!==null && !flying");
-  });
-  await c.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});
-  await c.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'});
-  await c.until("mode!=='battle' && !flying");
-  results.战役=await measure(c,async()=>{
-    await enter(); await c.until("mode==='battle' && bt.playing");
-    await c.until('!bt.playing && bt.si===bt.steps.length-1',240000);
-  });
-  await tap('nr-exit');await hash('f=1');await c.until('film.on && film.i===0 && !film.playing && !flying');
-  results.全片=await measure(c,async()=>{await tap('nr-play');await c.until('film.playing && film.i===3',120000)});
+  if(want('飞行')){
+    await tap('zin');
+    results.飞行=await measure(c,async()=>{
+      await tap('zfit');await c.until('!flying && view.k===1');await enter();
+      // 第一步开始讲解时，入场的两个镜头均已提交。
+      await c.until("mode==='battle' && bt.playing && bt.si===0 && narrCur!==null && !flying");
+    },false,values['trace-layout']);
+    await c.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});
+    await c.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'});
+    await c.until("mode!=='battle' && !flying");
+  }
+  if(want('战役')){
+    results.战役=await measure(c,async()=>{
+      await enter(); await c.until("mode==='battle' && bt.playing");
+      await c.until('!bt.playing && bt.si===bt.steps.length-1',240000);
+    },false,values['trace-layout']);
+    await tap('nr-exit');
+  }
+  if(want('全片')){
+    await hash('f=1');await c.until('film.on && film.i===0 && !film.playing && !flying');
+    results.全片=await measure(c,async()=>{await tap('nr-play');await c.until('film.playing && film.i===3',120000)});
+  }
   return results;
 }
 
@@ -238,16 +372,31 @@ async function runChrome(url,gpu,variant) {
 }
 
 const metrics={frames:'帧间隔数',fps:'FPS',p50:'p50',p95:'p95',max:'最大',slow:'>50ms',script:'Script',style:'Style',layout:'Layout',paint:'Paint',raster:'Raster',load:'load',ready:'year',long:'长任务',font:'已载 Noto 分片'};
+if(probes.length)Object.assign(metrics,{layout300:'≥300ms Layout 次数',layoutMax:'最大 Layout ms'});
 function median(list) {
   const a=list.filter(Number.isFinite).sort((a,b)=>a-b);
-  return a.length>=2?(a[Math.floor((a.length-1)/2)]+a[Math.floor(a.length/2)])/2:null;
+  return a.length>=(runs===1?1:2)?(a[Math.floor((a.length-1)/2)]+a[Math.floor(a.length/2)])/2:null;
+}
+function appendAttribution(lines,rows) {
+  for(const [i,row] of rows.entries())for(const [scene,result] of Object.entries(row.results)){
+    const events=result.layoutEvents;if(!events)continue;
+    const sum=es=>es.reduce((n,e)=>n+e.ms,0),forced=events.filter(e=>e.forced);
+    const totals=events.map(e=>e.total).filter(Number.isFinite),total=sum(events),ms=sum(forced);
+    const percent=n=>total?(100*n/total).toFixed(1)+'%':'—';
+    lines.push('',`### 样本 ${i+1} · ${row.gpu} GPU · ${row.variant} · ${scene}`,'',
+      '|Layout 次数|强制次数|强制 ms（占比）|帧内 ms（占比）|平均 totalObjects|', '|---:|---:|---:|---:|---:|',
+      `|${events.length}|${forced.length}|${ms.toFixed(1)}（${percent(ms)}）|${(total-ms).toFixed(1)}（${percent(total-ms)}）|${totals.length?(totals.reduce((a,b)=>a+b,0)/totals.length).toFixed(1):'—'}|`,
+      '', '|耗时 ms|dirtyObjects|totalObjects|partialLayout|JS 栈顶|','|---:|---:|---:|---|---|');
+    for(const e of [...events].sort((a,b)=>b.ms-a.ms).slice(0,10))lines.push(`|${e.ms.toFixed(2)}|${e.dirty??'—'}|${e.total??'—'}|${e.partial??'—'}|${e.top}|`);
+  }
+  lines.push('','按 beginData.stackTrace 区分强制排版与帧内排版。此 trace 没有完整 DOM 写入日志，不能可靠给出每帧之前最后一次写入的来源。');
 }
 export function render(rows) {
-  const keys=Object.keys(metrics),lines=[`390×844 · DPR 3 · CPU ×${cpu} · ${values.file?'file':'HTTP'} · 各列三次中位数，括号为同 GPU 同场景相对基线差值。时长单位 ms。`, '',
+  const keys=Object.keys(metrics),lines=[`390×844 · DPR 3 · CPU ×${cpu} · ${values.file?'file':'HTTP'} · 各列 ${runs} 次中位数，括号为同 GPU 同场景相对基线差值。时长单位 ms。`, '',
     '|GPU 设置|场景|开关|'+Object.values(metrics).join('|')+'|','|'+Array(3+keys.length).fill('---').join('|')+'|'];
-  for (const gpu of ['默认','禁用']) for (const scene of scenes) {
+  for (const gpu of gpus) for (const scene of selectedScenes) {
     const base={};
-    for (const variant of Object.keys(variants)) {
+    for (const variant of selectedVariants) {
       const samples=rows.filter(r=>r.gpu===gpu&&r.variant===variant).map(r=>r.results[scene]);
       const cells=keys.map(k=>{
         const n=median(samples.map(s=>s[k]));if (variant==='基线') base[k]=n;
@@ -258,6 +407,10 @@ export function render(rows) {
       lines.push('|'+[gpu,scene,variant,...cells].join('|')+'|');
     }
   }
+  if(probes.length)lines.push('','每项每轮先测一次基线，再测该项。基线行汇总所有交替基线。最大 Layout 一列取各轮单事件最大值的中位数。');
+  if(values['trace-layout'])appendAttribution(lines,rows);
+  // 跨场景、跨 GPU 的总榜只对完整矩阵有意义。
+  if(gpus.length!==2||selectedScenes.length!==scenes.length||!Object.keys(variants).every(name=>selectedVariants.includes(name)))return lines.join('\n')+'\n';
   const value=(gpu,variant,scene,key)=>median(rows.filter(r=>r.gpu===gpu && r.variant===variant).map(r=>r.results[scene][key]));
   const ranked=Object.keys(variants).slice(1).map(variant=>{
     const scores=['默认','禁用'].map(gpu=>{
@@ -280,15 +433,118 @@ export function render(rows) {
     '', '藏瓦片仍会请求、解码瓦片。藏地形同时隐藏底图和瓦片。收回舞台会改变 SVG 显示比例。系统字体会同时拦截 Noto Serif SC 与 Ma Shan Zheng 的共享样式表。这些差值包含相应的画面变化。无头桌面 Chrome 的降速测量不能换算成真机 Safari 的帧率。');
   return lines.join('\n')+'\n';
 }
+async function wkFrames(page,action){
+  await page.evaluate(()=>{
+    const meter=window.atlasMeter={frames:[]};
+    function tick(t){meter.frames.push(t);meter.raf=requestAnimationFrame(tick)}
+    meter.raf=requestAnimationFrame(tick);
+  });
+  await action();
+  const frames=await page.evaluate(()=>{cancelAnimationFrame(atlasMeter.raf);return atlasMeter.frames});
+  const gaps=frames.slice(1).map((t,i)=>t-frames[i]).sort((a,b)=>a-b);
+  if(!gaps.length)throw new Error('WebKit 场景没有 rAF 样本');
+  const q=p=>gaps[Math.ceil(p*gaps.length)-1];
+  return {frames:gaps.length,fps:1000*gaps.length/(frames.at(-1)-frames[0]),p50:q(.5),p95:q(.95)};
+}
+
+async function wkSample(pw,url,variant){
+  const browser=await pw.webkit.launch({headless:true});
+  try{
+    const context=await browser.newContext({...pw.devices['iPhone 15']});
+    if(variant==='系统字体')await context.route('https://fonts.googleapis.com/**',r=>r.abort());
+    const page=await context.newPage(),results={};
+    page.on('pageerror',e=>console.error('WebKit 页面异常',e));
+    const wait=(expr,timeout=30000)=>page.waitForFunction(expr,undefined,{timeout,polling:100});
+    const tap=id=>page.locator('#'+id).tap({timeout:15000});
+    const hash=h=>page.evaluate(s=>location.hash=s,h);
+    await page.goto(url,{waitUntil:'load',timeout:90000});
+    await tap('op-explore');await wait("document.getElementById('opening').hidden");
+    const probe=[...wkProbes,...probes].find(p=>p.name===variant);
+    if(probe)await page.evaluate(injectProbe,probe);
+    else if(variants[variant])await page.addStyleTag({content:variants[variant]});
+    await page.evaluate(async()=>{document.body.getBoundingClientRect();await document.fonts.ready});
+    if(selectedScenes.includes('拖图')){
+      // WebKit 的公开触屏 API 只支持 tap。用受信鼠标输入走同一 pointer 拖动处理器。
+      const mouse=page.mouse;
+      results.拖图=await wkFrames(page,async()=>{
+        await mouse.move(195,370);await mouse.down();
+        const start=performance.now();
+        do{
+          const angle=2*Math.PI*Math.min(1,(performance.now()-start)/3008);
+          await mouse.move(195+100*Math.sin(angle),370+40*Math.sin(2*angle));
+          await sleep(16);
+        }while(performance.now()-start<3008);
+        await mouse.move(195,370);await mouse.up();await sleep(240);
+      });
+    }
+    if(selectedScenes.some(s=>s!=='拖图')){
+      await hash('f=1');await wait('film.on&&!flying');await tap('nr-voice');await tap('nr-rate');await tap('nr-rate');
+      await wait('!VOICE.on&&filmRate===1.5');await tap('nr-exit');
+    }
+    const battle=await page.evaluate(()=>C.ev.filter(e=>e[6]).sort((a,b)=>b[6].steps.length-a[6].steps.length)[0][1]);
+    const enter=()=>hash('b='+encodeURIComponent(battle)+'&s=0');
+    if(selectedScenes.includes('飞行')){
+      await tap('zin');results.飞行=await wkFrames(page,async()=>{
+        await tap('zfit');await wait('!flying&&view.k===1');await enter();
+        await wait("mode==='battle'&&bt.playing&&bt.si===0&&narrCur!==null&&!flying");
+      });
+      await page.keyboard.press('Escape');await wait("mode!=='battle'&&!flying");
+    }
+    if(selectedScenes.includes('战役')){
+      results.战役=await wkFrames(page,async()=>{
+        await enter();await wait("mode==='battle'&&bt.playing");await wait('!bt.playing&&bt.si===bt.steps.length-1',240000);
+      });await tap('nr-exit');
+    }
+    if(selectedScenes.includes('全片')){
+      await hash('f=1');await wait('film.on&&film.i===0&&!film.playing&&!flying');
+      results.全片=await wkFrames(page,async()=>{await tap('nr-play');await wait('film.playing&&film.i===3',120000)});
+    }
+    return results;
+  }finally{await browser.close()}
+}
+
+async function webkitMatrix(url){
+  let pw;
+  try{pw=createRequire(import.meta.url)('playwright')}catch{
+    throw new Error('在临时目录 npm install playwright 并运行 npx playwright install webkit，然后以 NODE_PATH=该目录/node_modules 运行此命令');
+  }
+  const pairs=selectedVariants.filter(v=>v!=='基线');
+  const names=pairs.length?pairs.flatMap(v=>['基线',v]):['基线'];
+  const rows=[];
+  for(let round=1;round<=runs;round++)for(const [i,variant] of names.entries()){
+    const pairedWith=variant==='基线'?(names[i+1]??variant):variant;
+    console.error(`${new Date().toLocaleTimeString()} 第 ${round}/${runs} 轮 ${i+1}/${names.length} ${variant}（${pairedWith}）`);
+    const row={round,variant,pairedWith,results:await wkSample(pw,url,variant)};
+    console.error(JSON.stringify(row));rows.push(row);
+  }
+  const lines=['WebKit · iPhone 15 · 原速 · 各列取中位数。每项紧邻一次基线。','','|开关|场景|FPS|p50 ms|p95 ms|','|---|---|---:|---:|---:|'];
+  for(const variant of new Set(names))for(const scene of selectedScenes){
+    const samples=rows.filter(r=>r.variant===variant).map(r=>r.results[scene]);
+    lines.push('|'+[variant,scene,...['fps','p50','p95'].map(k=>median(samples.map(s=>s[k])).toFixed(1))].join('|')+'|');
+  }
+  if(pairs.length){
+    const ranking=pairs.map(variant=>{
+      const base=rows.filter(r=>r.variant==='基线'&&r.pairedWith===variant);
+      const samples=rows.filter(r=>r.variant===variant);
+      const gains=selectedScenes.map(scene=>median(samples.map((r,i)=>100*(1-base[i].results[scene].fps/r.results[scene].fps))));
+      return {variant,gains,mean:gains.reduce((a,b)=>a+b,0)/gains.length};
+    }).sort((a,b)=>b.mean-a.mean);
+    lines.push('',`各轮与相邻基线配对，以下为平均帧间隔缩短百分比。各场景取 ${runs} 轮中位数后等权排序。`,'',
+      `|开关|均值|${selectedScenes.join('|')}|`,`|---|---:|${selectedScenes.map(()=>'---:').join('|')}|`);
+    for(const {variant,mean,gains} of ranking)lines.push(`|${variant}|${[mean,...gains].map(x=>x.toFixed(1)+'%').join('|')}|`);
+  }
+  const report=lines.join('\n')+'\n';if(values.out)await writeFile(values.out,report);process.stdout.write(report);
+}
 async function main() {
   const server=values.file?null:await serve();
   const url=server?`http://127.0.0.1:${server.address().port}/`:pathToFileURL(page).href;
   try {
-    const rows=[],names=Object.keys(variants);
-    for (let round=0;round<3;round++) for (let i=0;i<names.length;i++) {
-      const variant=names[(i+round*4)%names.length]; // 轮换顺序，减少升温/后台负载与开关的关联
-      for (const gpu of (round%2?['禁用','默认']:['默认','禁用'])) {
-        console.error(`${new Date().toLocaleTimeString()} ${rows.length+1}/66 ${gpu} ${variant} 第 ${round+1} 次`);
+    if(webkitMode)return await webkitMatrix(url);
+    const rows=[],names=probes.length?probes.flatMap(p=>['基线',p.name]):selectedVariants,total=runs*names.length*gpus.length;
+    for (let round=0;round<runs;round++) for (let i=0;i<names.length;i++) {
+      const variant=probes.length||experiments.some(name=>names.includes(name))?names[i]:names[(i+round*4)%names.length]; // 注入实验保持每轮基线、a、b、c；原矩阵轮换
+      for (const gpu of (round%2?gpus.slice().reverse():gpus)) {
+        console.error(`${new Date().toLocaleTimeString()} ${rows.length+1}/${total} ${gpu} ${variant} 第 ${round+1} 次`);
         const row={gpu,variant,results:await runChrome(url,gpu==='默认',variant)};
         rows.push(row);
         console.error(JSON.stringify(row));
