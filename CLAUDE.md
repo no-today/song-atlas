@@ -11,6 +11,7 @@
 - `npm run derive`：按 `data/snap-edits.json` 派生新态势（写回 snaps/shapes）；`npm run fmt`：统一 data 格式
 - `npm run voice -- --dry`：统计待配音；`--only 文字前缀`、`--from 段 --to 段`（段号同 `#f=`）限量合成并上传 R2，`--redo` 强制重合成选中段，`--fix` 只重做自检不过的段（尾部没读、多出无字幕语音、长停顿；合成时也自动补尾、裁剪），`--verify` 检查音频；凭据只读 `.env`，缓存 `.cache/voice/`
 - `npm run read`：生成按播放顺序、一句一行的通读稿 `dist/全片讲稿-通读稿.md`；`node tools/readthrough.mjs --apply 文件` 按段号把改过的通读稿写回 data/film
+- `npm run perf`：先 build，再用无头 Chrome 串行测 390×844 手机交互、十组 A/B 和禁用 GPU 对照，每配置三次。默认 HTTP、CPU 4 倍降速，可用 `-- --cpu 1`、`--file`、`--out 文件`。完整矩阵耗时较长。
 - `npm run smoke`：用本机 Chrome 无头打开产物，逐年拖动、讲大势、走完每个战役的每一步，有脚本异常即失败。改了 `src/app.js` 必跑
 - `.cache/venv/bin/python tools/relief.py tiles --palette D --quality 90 --out tiles --embed assets/relief.jpg`：生成地形瓦片及 2200px 离线底图（可用 `--cache` 指定主检出的 DEM 缓存）
 
