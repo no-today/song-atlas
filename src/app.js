@@ -358,7 +358,7 @@ let openingT=0;
 function openingClose(){clearTimeout(openingT);const o=$('opening');o.classList.remove('open');o.inert=true;if(REDUCED)o.hidden=true;else openingT=setTimeout(()=>o.hidden=true,300)}
 function openingShow(){clearTimeout(openingT);const o=$('opening'),i=progress.i,c=C.chapters[FILM[i]?.ch||0],mins=Math.round(C.chapters.reduce((n,c)=>n+c.d,0)/60);
   $('op-resume').hidden=i<=0;$('op-resume').textContent=`接着看 · 第 ${CHNUM[FILM[i]?.ch||0]} 章 ${c.t}`;
-  $('op-duration').textContent=`全片约 ${Math.floor(mins/60)} 小时 ${mins%60} 分 · 可用空格键播放、方向键翻段`;o.hidden=false;o.inert=false;uiShow();requestAnimationFrame(()=>o.classList.add('open'))}
+  $('op-duration').textContent=`全片约 ${Math.floor(mins/60)} 小时 ${mins%60} 分`+(TOUCH?'':' · 可用空格键播放、方向键翻段');pwaHint();o.hidden=false;o.inert=false;uiShow();requestAnimationFrame(()=>o.classList.add('open'))}
 $('op-start').addEventListener('click',()=>{unlockAudio();filmOpen(0,true)});$('op-resume').addEventListener('click',()=>{unlockAudio();filmOpen(progress.i,true)});
 $('op-explore').addEventListener('click',openingClose);$('opening').addEventListener('click',e=>{if(e.target===$('opening'))openingClose()});
 function panelSync(){const b=mode==='battle';
@@ -421,7 +421,15 @@ const drawerUp=e=>{if(!drawerDrag)return;const d=drawerDrag;drawerDrag=null;$('p
 $('panel').addEventListener('pointerup',drawerUp);$('panel').addEventListener('pointercancel',drawerUp);
 // ---------- 图层 ----------
 $('ptoggle').addEventListener('click',()=>{const off=document.body.classList.toggle('nopanel');$('ptoggle').textContent=off?'‹ 展开右栏':'收起 ›';$('ptoggle').setAttribute('aria-expanded',!off);uiShow()});
-const shareButton = $('share');
+// 主屏（PWA）模式没有浏览器界面：显示自带的分享按钮；手机浏览器里则在开场卡提示可添加到主屏幕
+const STANDALONE=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true,TOUCH=matchMedia('(pointer:coarse)').matches;
+let installEv=null;
+function pwaHint(){const p=$('op-pwa');p.hidden=STANDALONE||!TOUCH;if(p.hidden)return;p.textContent='';
+  if(installEv){const b=document.createElement('button');b.textContent='添加到主屏幕';b.addEventListener('click',async()=>{const e=installEv;installEv=null;e.prompt();await e.userChoice.catch(()=>{});pwaHint()});p.append('全屏观看、没有地址栏：',b);return}
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1;
+  p.textContent='添加到主屏幕，可全屏观看\n'+(ios?'浏览器「分享」→「添加到主屏幕」':'浏览器菜单 →「添加到主屏幕」')}
+addEventListener('beforeinstallprompt',e=>{installEv=e;pwaHint()});
+const shareButton = $('share');shareButton.hidden=!STANDALONE;
 let shareResetTimer;
 shareButton.addEventListener('click', async () => {
   const url = /^https?:$/.test(location.protocol) ? location.href : 'https://song-atlas.notoday.dev/' + location.hash;
