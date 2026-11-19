@@ -416,7 +416,7 @@ function drawerSet(open){$('panel').classList.toggle('drawer-open',open);$('draw
 $('drawer-handle').addEventListener('click',()=>{if(!drawerDragged)drawerSet(!$('panel').classList.contains('drawer-open'))});
 let drawerDrag=null,drawerDragged=false;
 $('panel').addEventListener('pointerdown',e=>{if(!narrow()||!e.target.closest('#drawer-handle,.now')||e.target.closest('.step'))return;drawerDragged=false;drawerDrag={y:e.clientY,open:$('panel').classList.contains('drawer-open'),dy:0}});
-$('panel').addEventListener('pointermove',e=>{if(!drawerDrag)return;const d=drawerDrag;d.dy=e.clientY-d.y;drawerDragged=Math.abs(d.dy)>5;if(drawerDragged)$('panel').setPointerCapture(e.pointerId);const span=innerHeight*.72-52,travel=d.open?Math.max(0,Math.min(span,d.dy)):Math.max(-span,Math.min(0,d.dy));$('panel').style.height=((d.open?innerHeight*.72:52)-travel)+'px'});
+$('panel').addEventListener('pointermove',e=>{if(!drawerDrag)return;const d=drawerDrag;d.dy=e.clientY-d.y;drawerDragged=Math.abs(d.dy)>5;if(drawerDragged)$('panel').setPointerCapture(e.pointerId);const span=innerHeight*.72-52,travel=d.open?Math.max(0,Math.min(span,d.dy)):Math.max(-span,Math.min(0,d.dy));const t=Math.abs(travel)/span,H=innerHeight*.72,S='(52px + var(--safe-bottom))';$('panel').style.height=d.open?`calc(${H*(1-t)}px + ${t} * ${S})`:`calc(${1-t} * ${S} + ${H*t}px)`});
 const drawerUp=e=>{if(!drawerDrag)return;const d=drawerDrag;drawerDrag=null;$('panel').style.height='';drawerSet(e.type==='pointercancel'?d.open:Math.abs(d.dy)>(innerHeight*.72-52)/3?d.dy<0:d.open)};
 $('panel').addEventListener('pointerup',drawerUp);$('panel').addEventListener('pointercancel',drawerUp);
 // ---------- 图层 ----------
