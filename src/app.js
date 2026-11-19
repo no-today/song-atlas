@@ -421,6 +421,28 @@ const drawerUp=e=>{if(!drawerDrag)return;const d=drawerDrag;drawerDrag=null;$('p
 $('panel').addEventListener('pointerup',drawerUp);$('panel').addEventListener('pointercancel',drawerUp);
 // ---------- 图层 ----------
 $('ptoggle').addEventListener('click',()=>{const off=document.body.classList.toggle('nopanel');$('ptoggle').textContent=off?'‹ 展开右栏':'收起 ›';$('ptoggle').setAttribute('aria-expanded',!off);uiShow()});
+const shareButton = $('share');
+let shareResetTimer;
+shareButton.addEventListener('click', async () => {
+  const url = /^https?:$/.test(location.protocol) ? location.href : 'https://song-atlas.notoday.dev/' + location.hash;
+  if (navigator.share) {
+    try {
+      await navigator.share({title: document.title, url});
+      return;
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch {
+    prompt('复制链接', url);
+    return;
+  }
+  shareButton.textContent = '已复制';
+  clearTimeout(shareResetTimer);
+  shareResetTimer = setTimeout(() => { shareButton.textContent = '分享'; }, 1500);
+});
 $('lytoggle').addEventListener('click',()=>{const h=$('layers').hidden=!$('layers').hidden;$('lytoggle').setAttribute('aria-expanded',!h);uiShow()});
 [['ly-terr',['g-terr','g-pl']],['ly-nat',['g-nat']],['ly-city',['g-city']],['ly-ev',['g-ev']],['ly-rt',['g-rt']],['ly-water',['g-water']],['ly-gar',['g-gar']],['ly-circ',['g-circ']]].forEach(([id,gs])=>
   $(id).addEventListener('change',e=>gs.forEach(g=>$(g).style.display=e.target.checked?'':'none')));
