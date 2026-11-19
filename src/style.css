@@ -2,7 +2,7 @@
   /* 布局：左为舆图，右为解说卷，下为年表。三种读图方式：天下大势（只留骨架）、战役解说（只留该战相关）、细览（州军驻军全开）。单一主题：宣纸、墨、朱砂。 */
   --paper:#ece0c4; --paper-deep:#dccba4; --ink:#2b2118; --ink-soft:#5d4c3a; --cinnabar:#a8301f; --azurite:#3d6470; --line:#b9a57c;
   --display:"Ma Shan Zheng","STKaiti","KaiTi","Kaiti SC",serif;
-  --body:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
+  --body:"Songti SC","STSong","Noto Serif SC","SimSun",serif;
   /* 版式阶梯：间距 s1—s5，字号 f1—f5，分隔线 rule */
   --s1:4px; --s2:8px; --s3:12px; --s4:18px; --s5:28px;
   --f1:11px; --f2:12.5px; --f3:13.5px; --f4:15px; --f5:22px;
