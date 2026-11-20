@@ -595,9 +595,12 @@ function commit(loadTiles=true){clearTimeout(comT);const r=wrap.getBoundingClien
   svg.classList.toggle('z1',sc>1.45);svg.classList.toggle('z2',sc>2.5);svg.classList.toggle('z3',sc>4.6);
   const km=6100/W,target=110/sc*km,nice=[20,50,100,200,300,500,1000].reduce((a,b)=>Math.abs(b-target)<Math.abs(a-target)?b:a);
   $('scale').firstElementChild.style.width=(nice/km*sc)+'px';$('scale').lastElementChild.textContent=nice+' 公里';scheduleCull();if(loadTiles)tileSync()}
-function preview(){clampView();const sc=base*view.k,ratio=view.k/com.k,tx=(com.cx-view.cx)*sc,ty=(com.cy-view.cy)*sc;
-  if(ratio>1.7||ratio<.62||Math.abs(tx)>M*.8||Math.abs(ty)>M*.8)commit(false);
-  else stage.style.transform=`translate(${tx}px,${ty}px) scale(${ratio})`;locSync();clearTimeout(comT);comT=setTimeout(commit,140)}
+// 缩放过大或舞台盖不住视口才重绘（WebKit 每次整层重绘约一帧以上）。缩放中途重绘时沿缩放方向超前一截，下一次重绘来得更晚。
+function preview(){clampView();let sc=base*view.k,ratio=view.k/com.k,tx=(com.cx-view.cx)*sc,ty=(com.cy-view.cy)*sc;
+  if(ratio>2.4||(cw/2+M)*ratio-cw/2-8<Math.abs(tx)||(ch/2+M)*ratio-ch/2-8<Math.abs(ty)){const cur={...view};
+    if(ratio>2.4)view.k*=1.55;else if(ratio<.8)view.k/=1.6;
+    commit(false);Object.assign(view,cur);ratio=view.k/com.k;tx=(com.cx-view.cx)*sc;ty=(com.cy-view.cy)*sc}
+  stage.style.transform=ratio===1&&!tx&&!ty?'':`translate(${tx}px,${ty}px) scale(${ratio})`;locSync();clearTimeout(comT);comT=setTimeout(commit,140)}
 function zoomAt(f,px,py,now){SY.user=true;px=px??cw/2;py=py??ch/2;const s0=base*view.k,mx=view.cx+(px-cw/2)/s0,my=view.cy+(py-ch/2)/s0;
   view.k=Math.max(1,Math.min(16,view.k*f));const s1=base*view.k;view.cx=mx-(px-cw/2)/s1;view.cy=my-(py-ch/2)/s1;now?commit():preview()}
 // 页面本身不缩放（地图自行缩放）：拦触控板捏合（ctrl+wheel）与 iOS 手势缩放

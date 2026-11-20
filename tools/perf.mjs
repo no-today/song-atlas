@@ -55,7 +55,7 @@ for(const probe of Array.isArray(probes)?probes:[]) {
 }
 if(!Array.isArray(probes)||new Set(probes.map(p=>p.name)).size!==probes.length)throw new Error('--probes 需要名称唯一的数组');
 if(values.probes&&(!probes.length||values.variants))throw new Error('--probes 自带交替基线，请单独指定非空列表');
-const wkScenes=['拖图','飞行','战役','全片'];
+const wkScenes=['拖图','缩放','飞行','战役','全片'];
 const wkProbes=webkitMode?[
   ...['hriv','nat','tribe','circ','rt','pl','btm','city','gar','ev','bt'].map(id=>({name:`藏${id}文字`,css:`#g-${id} text{display:none!important}`})),
   {name:'固定字号比例',camera:'scale'}, {name:'固定视框',camera:'viewBox'},
@@ -444,7 +444,7 @@ async function wkFrames(page,action){
   const gaps=frames.slice(1).map((t,i)=>t-frames[i]).sort((a,b)=>a-b);
   if(!gaps.length)throw new Error('WebKit 场景没有 rAF 样本');
   const q=p=>gaps[Math.ceil(p*gaps.length)-1];
-  return {frames:gaps.length,fps:1000*gaps.length/(frames.at(-1)-frames[0]),p50:q(.5),p95:q(.95)};
+  return {frames:gaps.length,fps:1000*gaps.length/(frames.at(-1)-frames[0]),p50:q(.5),p95:q(.95),max:q(1)};
 }
 
 async function wkSample(pw,url,variant){
@@ -476,6 +476,14 @@ async function wkSample(pw,url,variant){
         }while(performance.now()-start<3008);
         await mouse.move(195,370);await mouse.up();await sleep(240);
       });
+    }
+    if(selectedScenes.includes('缩放')){
+      // 移动 WebKit 的公开 API 没有双指与滚轮。页面内派发两路 pointer 事件，走同一捏合处理器：3 秒内张开约 8 倍再合拢。
+      results.缩放=await wkFrames(page,()=>page.evaluate(()=>new Promise(done=>{
+        const wrap=document.getElementById('mapwrap'),send=(type,id,x,y)=>wrap.dispatchEvent(new PointerEvent(type,{pointerId:id,pointerType:'touch',clientX:x,clientY:y,bubbles:true,isPrimary:id===1}));
+        const at=t=>20*Math.pow(8,t<.5?2*t:2-2*t);send('pointerdown',1,195-at(0),400);send('pointerdown',2,195+at(0),400);
+        const start=performance.now(),step=()=>{const t=Math.min(1,(performance.now()-start)/3008),d=at(t);send('pointermove',1,195-d,400);send('pointermove',2,195+d,400);
+          if(t<1)setTimeout(step,16);else{send('pointerup',1,195-d,400);send('pointerup',2,195+d,400);setTimeout(done,240)}};setTimeout(step,16)})));
     }
     if(selectedScenes.some(s=>s!=='拖图')){
       await hash('f=1');await wait('film.on&&!flying');await tap('nr-voice');await tap('nr-rate');await tap('nr-rate');
@@ -517,10 +525,10 @@ async function webkitMatrix(url){
     const row={round,variant,pairedWith,results:await wkSample(pw,url,variant)};
     console.error(JSON.stringify(row));rows.push(row);
   }
-  const lines=['WebKit · iPhone 15 · 原速 · 各列取中位数。每项紧邻一次基线。','','|开关|场景|FPS|p50 ms|p95 ms|','|---|---|---:|---:|---:|'];
+  const lines=['WebKit · iPhone 15 · 原速 · 各列取中位数。每项紧邻一次基线。','','|开关|场景|FPS|p50 ms|p95 ms|最大 ms|','|---|---|---:|---:|---:|---:|'];
   for(const variant of new Set(names))for(const scene of selectedScenes){
     const samples=rows.filter(r=>r.variant===variant).map(r=>r.results[scene]);
-    lines.push('|'+[variant,scene,...['fps','p50','p95'].map(k=>median(samples.map(s=>s[k])).toFixed(1))].join('|')+'|');
+    lines.push('|'+[variant,scene,...['fps','p50','p95','max'].map(k=>median(samples.map(s=>s[k])).toFixed(1))].join('|')+'|');
   }
   if(pairs.length){
     const ranking=pairs.map(variant=>{
