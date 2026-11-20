@@ -600,6 +600,9 @@ function preview(){clampView();const sc=base*view.k,ratio=view.k/com.k,tx=(com.c
   else stage.style.transform=`translate(${tx}px,${ty}px) scale(${ratio})`;locSync();clearTimeout(comT);comT=setTimeout(commit,140)}
 function zoomAt(f,px,py,now){SY.user=true;px=px??cw/2;py=py??ch/2;const s0=base*view.k,mx=view.cx+(px-cw/2)/s0,my=view.cy+(py-ch/2)/s0;
   view.k=Math.max(1,Math.min(16,view.k*f));const s1=base*view.k;view.cx=mx-(px-cw/2)/s1;view.cy=my-(py-ch/2)/s1;now?commit():preview()}
+// 页面本身不缩放（地图自行缩放）：拦触控板捏合（ctrl+wheel）与 iOS 手势缩放
+document.addEventListener('wheel',e=>{if(e.ctrlKey)e.preventDefault()},{passive:false});
+for(const t of['gesturestart','gesturechange','gestureend'])document.addEventListener(t,e=>e.preventDefault(),{passive:false});
 wrap.addEventListener('wheel',e=>{if(e.target.closest('.tools,#narr,#ptoggle,#loc,#opening'))return;e.preventDefault();flyStop();const r=wrap.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*.0016),e.clientX-r.left,e.clientY-r.top)},{passive:false});
 const ptrs=new Map();let pinch=0,moved=0;
 wrap.addEventListener('pointerdown',e=>{if(e.target.closest('.tools,#narr,#ptoggle,#loc,#opening')){moved=0;return}flyStop();ptrs.set(e.pointerId,[e.clientX,e.clientY]);moved=0;wrap.classList.add('drag')});

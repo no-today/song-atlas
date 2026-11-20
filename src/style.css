@@ -20,6 +20,7 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
+html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{container:atlas / inline-size;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.65;display:grid;grid-template-columns:minmax(0,1fr) 384px;grid-template-rows:minmax(0,1fr) auto;overflow:hidden}
 button{font:inherit;color:inherit;cursor:pointer}
 :focus-visible{outline:2px solid var(--cinnabar);outline-offset:2px}
